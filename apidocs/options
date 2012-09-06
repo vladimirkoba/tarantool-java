@@ -1,23 +1,23 @@
 -classpath
-'/home/dgreen/tarantool-java/target/classes'
+'/home/dgreen/workspace/tarantool-connector/target/classes'
 -encoding
 'UTF-8'
 -protected
 -sourcepath
-'/home/dgreen/tarantool-java/src/main/java'
+'/home/dgreen/workspace/tarantool-connector/src/main/java'
 -author
 -bottom
 'Copyright &#169; 2012. All Rights Reserved.'
 -charset
 'UTF-8'
 -d
-'/home/dgreen/tarantool-java/target/site/apidocs'
+'/home/dgreen/workspace/tarantool-connector/target/site/apidocs'
 -docencoding
 'UTF-8'
 -doctitle
 'Tarantool Connector for Java 0.0.9-SNAPSHOT API'
 -linkoffline
-'http://download.oracle.com/javase/6/docs/api' '/home/dgreen/tarantool-java/target/javadoc-bundle-options'
+'http://download.oracle.com/javase/6/docs/api' '/home/dgreen/workspace/tarantool-connector/target/javadoc-bundle-options'
 -use
 -version
 -windowtitle
