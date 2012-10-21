@@ -15,10 +15,10 @@
 -docencoding
 'UTF-8'
 -doctitle
-'Tarantool Connector for Java 0.1.1 API'
+'Tarantool Connector for Java 0.1.3-SNAPSHOT API'
 -linkoffline
 'http://download.oracle.com/javase/6/docs/api' '/home/dgreen/workspace/tarantool-connector/target/javadoc-bundle-options'
 -use
 -version
 -windowtitle
-'Tarantool Connector for Java 0.1.1 API'
+'Tarantool Connector for Java 0.1.3-SNAPSHOT API'

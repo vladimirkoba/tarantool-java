@@ -9,3 +9,4 @@ org.tarantool.facade.chain
 org.tarantool.facade.annotation
 org.tarantool.test
 org.tarantool.snapshot
+org.tarantool.example
