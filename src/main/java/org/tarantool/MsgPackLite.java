@@ -64,6 +64,7 @@ public class MsgPackLite {
 
     protected static final byte MP_FIXRAW = (byte) 0xa0;//last 5 bits is size
     protected static final int MP_FIXRAW_INT = 0xa0;
+    protected static final byte MP_RAW8 = (byte) 0xd9;
     protected static final byte MP_RAW16 = (byte) 0xda;
     protected static final byte MP_RAW32 = (byte) 0xdb;
 
@@ -143,7 +144,10 @@ public class MsgPackLite {
 
             if (data.length <= MAX_5BIT) {
                 out.write(data.length | MP_FIXRAW);
-            } else if (data.length <= MAX_16BIT) {
+            } else if (data.length <= MAX_8BIT) {
+                out.write(MP_RAW8);
+                out.writeByte(data.length);
+            }else if (data.length <= MAX_16BIT) {
                 out.write(MP_RAW16);
                 out.writeShort(data.length);
             } else {
@@ -246,6 +250,8 @@ public class MsgPackLite {
             return unpackMap(in.readShort() & MAX_16BIT, in, options);
         case MP_MAP32:
             return unpackMap(in.readInt(), in, options);
+        case MP_RAW8:
+            return unpackRaw(in.readByte() & MAX_8BIT, in, options);
         case MP_RAW16:
             return unpackRaw(in.readShort() & MAX_16BIT, in, options);
         case MP_RAW32:
