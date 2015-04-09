@@ -12,13 +12,16 @@ public class ByteBufferStreams {
     protected OutputStream os = new OutputStream() {
         @Override
         public void write(int b) throws IOException {
+            if(buf.remaining() < 1) {
+                checkCapacity(buf.capacity() + 1);
+            }
             buf.put((byte) b);
         }
 
         @Override
         public void write(byte[] b, int off, int len) throws IOException {
             if (len > buf.remaining()) {
-                checkCapacityAndSetLimit(buf.capacity() + len - buf.remaining());
+                checkCapacity(buf.capacity() + (len - buf.remaining()));
             }
             buf.put(b, off, len);
         }
@@ -50,14 +53,13 @@ public class ByteBufferStreams {
     }
 
 
-    public void checkCapacityAndSetLimit(int size) {
+    public void checkCapacity(int size) {
         if (buf.capacity() < size) {
-            ByteBuffer newBuf = ByteBuffer.allocate(size);
-            buf.rewind();
+            ByteBuffer newBuf = ByteBuffer.allocate(size + (size)/2);
+            buf.flip();
             newBuf.put(buf);
             buf = newBuf;
         }
-        buf.limit(size);
     }
 
 

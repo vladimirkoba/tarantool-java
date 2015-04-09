@@ -35,9 +35,10 @@ public class ConnectionState {
         try {
             long size = (Long) MsgPackLite.unpack(buffer.asInputStream(), 0);
             buf.clear();
-            buffer.checkCapacityAndSetLimit((int) size);
+            buffer.checkCapacity((int) size);
             buf = buffer.getBuf();
             buf.position(0);
+            buf.limit((int)size);
             return buf;
         } catch (IOException e) {
             //this shouldn't happens
@@ -100,8 +101,11 @@ public class ConnectionState {
             //this shouldn't happens
             throw new IllegalStateException(e);
         }
-        buf.putInt(1, buf.position() - 5);
-        buf.limit(buf.position());
+        //buffer can be changed during write process
+        buf = buffer.getBuf();
+        int size = buf.position();
+        buf.putInt(1, size - 5);
+        buf.limit(size);
         buf.rewind();
         return buf;
     }
