@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 import java.util.EnumMap;
 import java.util.Map;
 
-public class ConneсtionState {
+public class ConnectionState {
 
     protected EnumMap<Key, Object> header = new EnumMap<Key, Object>(Key.class);
     protected EnumMap<Key, Object> body = new EnumMap<Key, Object>(Key.class);
@@ -106,12 +106,12 @@ public class ConneсtionState {
         return buf;
     }
 
-    public ConneсtionState beginBody() {
+    public ConnectionState beginBody() {
         body.clear();
         return this;
     }
 
-    public ConneсtionState put(Key key, Object value) {
+    public ConnectionState put(Key key, Object value) {
         if (value != null) {
             body.put(key, value);
         }

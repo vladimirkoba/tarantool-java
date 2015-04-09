@@ -12,13 +12,13 @@ import java.util.List;
 
 public class TarantoolConnection16Impl implements TarantoolConnection16 {
     protected final SocketChannel channel;
-    protected final ConneсtionState state;
+    protected final ConnectionState state;
     protected final String salt;
 
     public TarantoolConnection16Impl(String host, int port) {
         try {
             this.channel = SocketChannel.open(new InetSocketAddress(host, port));
-            this.state = new ConneсtionState();
+            this.state = new ConnectionState();
             ByteBuffer welcome = state.getWelcomeBuffer();
             readFully(welcome);
             String firstLine = new String(welcome.array(), 0, welcome.position());
@@ -39,7 +39,7 @@ public class TarantoolConnection16Impl implements TarantoolConnection16 {
         return channel;
     }
 
-    protected ConneсtionState getState() {
+    protected ConnectionState getState() {
         return state;
     }
 
