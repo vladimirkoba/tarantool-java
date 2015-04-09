@@ -36,6 +36,8 @@ public class ConneсtionState {
             long size = (Long) MsgPackLite.unpack(buffer.asInputStream(), 0);
             buf.clear();
             buffer.checkCapacityAndSetLimit((int) size);
+            buf = buffer.getBuf();
+            buf.position(0);
             return buf;
         } catch (IOException e) {
             //this shouldn't happens
