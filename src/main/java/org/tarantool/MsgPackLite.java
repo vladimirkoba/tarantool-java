@@ -1,5 +1,6 @@
 package org.tarantool;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -9,6 +10,7 @@ import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +23,8 @@ public class MsgPackLite {
 
     public static final int OPTION_UNPACK_RAW_AS_STRING = 0x1;
     public static final int OPTION_UNPACK_RAW_AS_BYTE_BUFFER = 0x2;
+    public static final int OPTION_UNPACK_NUMBER_UINT32_AS_INT = 0x4;
+    public static final int OPTION_UNPACK_NUMBER_AS_LONG = 0x8;
 
     protected static final int MAX_4BIT = 0xf;
     protected static final int MAX_5BIT = 0x1f;
@@ -69,10 +73,10 @@ public class MsgPackLite {
     protected static final byte MP_RAW32 = (byte) 0xdb;
 
     public static void pack(Object item, OutputStream os) throws IOException {
-        DataOutputStream out = new DataOutputStream(os);
-        if(item instanceof Callable) {
+        DataOutputStream out = (os instanceof DataOutputStream) ? (DataOutputStream) os : new DataOutputStream(os);
+        if (item instanceof Callable) {
             try {
-                item = ((Callable)item).call();
+                item = ((Callable) item).call();
             } catch (Exception e) {
                 throw new IllegalArgumentException(e);
             }
@@ -156,7 +160,7 @@ public class MsgPackLite {
             }
             out.write(data);
         } else if (item instanceof List || item.getClass().isArray()) {
-            int length = item instanceof List?((List) item).size(): Array.getLength(item);
+            int length = item instanceof List ? ((List) item).size() : Array.getLength(item);
             if (length <= MAX_4BIT) {
                 out.write(length | MP_FIXARRAY);
             } else if (length <= MAX_16BIT) {
@@ -166,13 +170,13 @@ public class MsgPackLite {
                 out.write(MP_ARRAY32);
                 out.writeInt(length);
             }
-            if(item instanceof List) {
+            if (item instanceof List) {
                 List list = ((List) item);
                 for (Object element : list) {
                     pack(element, out);
                 }
             } else {
-                for(int i=0;i<length;i++) {
+                for (int i = 0; i < length; i++) {
                     pack(Array.get(item, i), out);
                 }
             }
@@ -196,8 +200,15 @@ public class MsgPackLite {
         }
     }
 
+    private static Number val(Number n, int options) {
+        if ((options & OPTION_UNPACK_NUMBER_AS_LONG) > 0) {
+            return n.longValue();
+        }
+        return n;
+    }
+
     public static Object unpack(InputStream is, int options) throws IOException {
-        DataInputStream in = new DataInputStream(is);
+        DataInputStream in = is instanceof DataInputStream ? (DataInputStream) is : new DataInputStream(is);
         int value = in.read();
         if (value < 0) {
             throw new IllegalArgumentException("No more input available when expecting a value");
@@ -214,11 +225,12 @@ public class MsgPackLite {
         case MP_DOUBLE:
             return in.readDouble();
         case MP_UINT8:
-            return in.read();//read single byte, return as int
+            return val(in.read(), options);//read single byte, return as int
         case MP_UINT16:
-            return in.readShort() & MAX_16BIT;//read short, trick Java into treating it as unsigned, return int
+            return val(in.readShort() & MAX_16BIT, options);//read short, trick Java into treating it as unsigned, return int
         case MP_UINT32:
-            return in.readInt() & MAX_32BIT;//read int, trick Java into treating it as unsigned, return long
+            long n = in.readInt() & MAX_32BIT;
+            return val((options & OPTION_UNPACK_NUMBER_UINT32_AS_INT) > 0 && n <= Integer.MAX_VALUE ? (int) n : n, options);
         case MP_UINT64: {
             long v = in.readLong();
             if (v >= 0) {
@@ -231,17 +243,17 @@ public class MsgPackLite {
                         (byte) ((v >> 8) & 0xff),
                         (byte) (v & 0xff),
                 };
-                return new BigInteger(1, bytes);
+                return val(new BigInteger(1, bytes), options);
             }
         }
         case MP_INT8:
-            return (byte) in.read();
+            return val((byte) in.read(), options);
         case MP_INT16:
-            return in.readShort();
+            return val(in.readShort(), options);
         case MP_INT32:
-            return in.readInt();
+            return val(in.readInt(), options);
         case MP_INT64:
-            return in.readLong();
+            return val(in.readLong(), options);
         case MP_ARRAY16:
             return unpackList(in.readShort() & MAX_16BIT, in, options);
         case MP_ARRAY32:
@@ -269,7 +281,7 @@ public class MsgPackLite {
         } else if (value <= MAX_7BIT) {//MP_FIXNUM - the value is value as an int
             return value;
         } else {
-            throw new IllegalArgumentException("Input contains invalid type value "+(byte) value);
+            throw new IllegalArgumentException("Input contains invalid type value " + (byte) value);
         }
     }
 
@@ -313,4 +325,6 @@ public class MsgPackLite {
             return data;
         }
     }
+
+
 }

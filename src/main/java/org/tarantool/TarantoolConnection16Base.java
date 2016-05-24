@@ -10,27 +10,27 @@ import java.util.List;
 
 import org.tarantool.schema.TarantoolConnectionSchemaAware;
 
-public abstract class TarantoolConnection16Base<T,O,P,R> extends AbstractTarantoolConnection16<T,O,P,R> implements TarantoolConnectionSchemaAware {
-    protected final SocketChannel channel;
-    protected final ConnectionState state;
-    protected final String salt;
+public abstract class TarantoolConnection16Base<Space, Tuple, Operation, Result> extends AbstractTarantoolConnection16<Space, Tuple, Operation, Result> implements TarantoolConnectionSchemaAware {
+    protected SocketChannel channel;
+    protected ConnectionState in;
+    protected ConnectionState out;
+    protected String salt;
+    protected int msgPackOptions = MsgPackLite.OPTION_UNPACK_NUMBER_AS_LONG | MsgPackLite.OPTION_UNPACK_RAW_AS_STRING;
 
-    protected ConnectionState getState() {
-        return state;
-    }
 
     public TarantoolConnection16Base(SocketChannel channel) {
         try {
             this.channel = channel;
-            this.state = new ConnectionState();
-            ByteBuffer welcome = state.getWelcomeBuffer();
+            this.in = new ConnectionState();
+            this.out = new ConnectionState();
+            ByteBuffer welcome = in.getWelcomeBuffer();
             readFully(welcome);
             String firstLine = new String(welcome.array(), 0, welcome.position());
             if (!firstLine.startsWith("Tarantool")) {
                 channel.close();
                 throw new CommunicationException("Welcome message should starts with tarantool but starts with '" + firstLine + "'");
             }
-            welcome = state.getWelcomeBuffer();
+            welcome = in.getWelcomeBuffer();
             readFully(welcome);
             this.salt = new String(welcome.array(), 0, welcome.position());
         } catch (IOException e) {
@@ -55,16 +55,16 @@ public abstract class TarantoolConnection16Base<T,O,P,R> extends AbstractTaranto
 
     protected Object readData() {
         readPacket();
-        return state.getBody().get(Key.DATA);
+        return in.getBody().get(Key.DATA);
     }
 
     protected void readPacket() {
-        readFully(state.getLengthReadBuffer());
-        readFully(state.getPacketReadBuffer());
-        state.unpack();
-        long code = (Long) state.getHeader().get(Key.CODE);
+        readFully(in.getLengthReadBuffer());
+        readFully(in.getPacketReadBuffer());
+        in.unpack(msgPackOptions);
+        long code = (Long) in.getHeader().get(Key.CODE);
         if (code != 0) {
-            Object error = state.getBody().get(Key.ERROR);
+            Object error = in.getBody().get(Key.ERROR);
             throw new TarantoolException((int) code, error instanceof String ? (String) error : new String((byte[]) error));
         }
     }
@@ -86,7 +86,7 @@ public abstract class TarantoolConnection16Base<T,O,P,R> extends AbstractTaranto
     }
 
     public void ping() {
-        exec(Code.PING);
+        noError(exec(Code.PING));
     }
 
 
@@ -109,21 +109,25 @@ public abstract class TarantoolConnection16Base<T,O,P,R> extends AbstractTaranto
                 p[i] ^= scramble[i];
             }
             auth.add(p);
-            exec(Code.AUTH, Key.USER_NAME, username, Key.TUPLE, auth);
+            noError(exec(Code.AUTH, Key.USER_NAME, username, Key.TUPLE, auth));
 
         } catch (NoSuchAlgorithmException e) {
             throw new CommunicationException("Can't use sha-1", e);
         }
     }
 
+    protected void noError(Result r) {
+
+    }
+
 
     protected int write(Code code, Object[] args) {
-        return write(state.pack(code, args));
+        return write(out.pack(code, args));
     }
 
     @Override
     public Long getSchemaId() {
-        return (Long) getState().getHeader().get(Key.SCHEMA_ID);
+        return (Long) in.getHeader().get(Key.SCHEMA_ID);
     }
 
     public void close() {
@@ -135,7 +139,11 @@ public abstract class TarantoolConnection16Base<T,O,P,R> extends AbstractTaranto
     }
 
 
+    public int getMsgPackOptions() {
+        return msgPackOptions;
+    }
 
-
-
+    public void setMsgPackOptions(int msgPackOptions) {
+        this.msgPackOptions = msgPackOptions;
+    }
 }

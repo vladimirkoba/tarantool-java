@@ -18,7 +18,7 @@ public class TarantoolNamedBatchConnection16Impl extends TarantoolNamedBase16<Ba
         delegate = new TarantoolBatchConnection16Impl(channel) {
             @Override
             protected void write(BatchedQuery q) {
-                write(state.pack(q.code, q.id, isCodeResolvable(q.code) ? schemaId : 0, resolveArgs(q.code, q.args)));
+                write(in.pack(q.code, q.id, isCodeResolvable(q.code) ? schemaId : 0, resolveArgs(q.code, q.args)));
             }
         };
     }

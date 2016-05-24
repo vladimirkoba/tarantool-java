@@ -20,7 +20,7 @@ public class SchemaResolver {
             if (space != null) {
                 String spaceName = space.value().isEmpty() ? field.getName() : space.value();
                 List spaceMeta = spaces.get(spaceName);
-                final Integer spaceIndex = (Integer) spaceMeta.get(0);
+                final Integer spaceIndex = ((Number) spaceMeta.get(0)).intValue();
                 if(spaceIndex == null) {
                     throw new IllegalStateException("Can't find ID for space "+spaceName);
                 }

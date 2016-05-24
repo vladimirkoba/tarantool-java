@@ -30,14 +30,23 @@ public class TestBatch16 {
         con.auth("test", "test");
 
         TarantoolConnection16 c = new TarantoolConnection16Impl("localhost", 3301);
-        con.auth("test", "test");
+        c.auth("test", "test");
 
         final TestSchema schema = new SchemaResolver().schema(new TestSchema(), c);
         c.close();
         System.out.println(schema);
 
-        con.begin();
 
+        test(con, schema);
+        test(con, schema);
+        test(con, schema);
+
+        con.close();
+
+    }
+
+    private static void test(TarantoolBatchConnection16 con, TestSchema schema) {
+        con.begin();
         BatchedQueryResult delete0 = con.delete(schema.tester.id, Arrays.asList(0));
 
         BatchedQueryResult delete = con.delete(schema.tester.id, Arrays.asList(1));
@@ -64,8 +73,5 @@ public class TestBatch16 {
         System.out.println(update0);
         System.out.println(result);
         System.out.println(eval);
-        ;
-        con.close();
-
     }
 }

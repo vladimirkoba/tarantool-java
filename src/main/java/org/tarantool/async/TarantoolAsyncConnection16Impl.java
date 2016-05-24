@@ -54,7 +54,7 @@ public class TarantoolAsyncConnection16Impl extends TarantoolConnection16Base<In
         if (key == null) {
             throw new CommunicationException("Can't register key");
         }
-        readBuffer = state.getLengthReadBuffer();
+        readBuffer = in.getLengthReadBuffer();
     }
 
     @Override
@@ -72,17 +72,17 @@ public class TarantoolAsyncConnection16Impl extends TarantoolConnection16Base<In
             if (read > 0) {
                 if (readBuffer.position() == readBuffer.limit()) {
                     if (conState == ST_LENGTH) {
-                        readBuffer = state.getPacketReadBuffer();
+                        readBuffer = in.getPacketReadBuffer();
                         conState = ST_BODY;
                         read();
                     } else if (conState == ST_BODY) {
-                        state.unpack();
-                        long code = (Long) state.getHeader().get(Key.CODE);
-                        long syncId1 = (Long) state.getHeader().get(Key.SYNC);
-                        schemaId = (Long) state.getHeader().get(Key.SCHEMA_ID);
+                        in.unpack(msgPackOptions);
+                        long code = (Long) in.getHeader().get(Key.CODE);
+                        long syncId1 = (Long) in.getHeader().get(Key.SYNC);
+                        schemaId = (Long) in.getHeader().get(Key.SCHEMA_ID);
                         AsyncQuery q = futures.remove(syncId1);
                         setFutureResult(code, q);
-                        readBuffer = state.getLengthReadBuffer();
+                        readBuffer = in.getLengthReadBuffer();
                         conState = ST_LENGTH;
                     }
                 }
@@ -96,10 +96,10 @@ public class TarantoolAsyncConnection16Impl extends TarantoolConnection16Base<In
     protected void setFutureResult(long code, AsyncQuery q) {
         if (q != null) {
             if (code != 0) {
-                Object error = state.getBody().get(Key.ERROR);
+                Object error = in.getBody().get(Key.ERROR);
                 q.setError(new TarantoolException((int) code, error instanceof String ? (String) error : new String((byte[]) error)));
             } else {
-                q.setValue(state.getBody().get(Key.DATA));
+                q.setValue(in.getBody().get(Key.DATA));
             }
 
         }
@@ -137,10 +137,10 @@ public class TarantoolAsyncConnection16Impl extends TarantoolConnection16Base<In
     @Override
     public Future<List> exec(Code code, Object... args) {
         if (syncMode) {
-            write(state.pack(code, args));
+            write(in.pack(code, args));
             AsyncQuery<List> q = new AsyncQuery<List>();
             q.setValue((List) readData());
-            schemaId = (Long) state.getHeader().get(Key.SCHEMA_ID);
+            schemaId = (Long) in.getHeader().get(Key.SCHEMA_ID);
             return q;
         }
         if (key.isValid()) {

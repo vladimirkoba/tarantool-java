@@ -81,15 +81,15 @@ public class TarantoolAsyncNamedConnection16Impl extends TarantoolNamedBase16<Fu
                         if (code == ER_SCHEMA_CHANGED) {
                             updateSchemaAndExecute(q);
                         } else {
-                            Object error = state.getBody().get(Key.ERROR);
+                            Object error = in.getBody().get(Key.ERROR);
                             q.setError(new TarantoolException((int) code, error instanceof String ? (String) error : new String((byte[]) error)));
                         }
                     } else {
                         if (isSchemaResolveQuery(q)) {
-                            q.setValue(state.getBody().get(Key.DATA));
+                            q.setValue(in.getBody().get(Key.DATA));
                             performSchemaUpdate(q);
                         } else {
-                            q.setValue(resolveTuplesWithFields(q.getCode(), q.getArgs(), (List) state.getBody().get(Key.DATA), ((AsyncQueryEx)q).fields));
+                            q.setValue(resolveTuplesWithFields(q.getCode(), q.getArgs(), (List) in.getBody().get(Key.DATA), ((AsyncQueryEx)q).fields));
                         }
                     }
                 }
@@ -99,7 +99,7 @@ public class TarantoolAsyncNamedConnection16Impl extends TarantoolNamedBase16<Fu
                 if (spaces.isDone() && indexes.isDone()) {
                     try {
                         buildSchema(spaces.get(), indexes.get());
-                        schemaId = (Long) state.getHeader().get(Key.SCHEMA_ID);
+                        schemaId = (Long) in.getHeader().get(Key.SCHEMA_ID);
                     } catch (Exception e) {
                         delegate.close(e);
                     }

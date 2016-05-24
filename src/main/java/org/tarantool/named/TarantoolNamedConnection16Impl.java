@@ -16,7 +16,7 @@ public class TarantoolNamedConnection16Impl extends TarantoolNamedBase16<List> i
         delegate = new TarantoolConnection16Impl(channel) {
             @Override
             protected int write(Code code, Object[] args) {
-                return write(state.pack(code, null, isCodeResolvable(code) ? schemaId : null, args));
+                return write(in.pack(code, null, isCodeResolvable(code) ? schemaId : null, args));
             }
         };
     }

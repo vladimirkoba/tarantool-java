@@ -155,7 +155,7 @@ public abstract class TarantoolNamedBase16<R> extends AbstractTarantoolConnectio
         return tuples;
     }
 
-    protected boolean   isCodeResolvable(Code code) {
+    protected boolean isCodeResolvable(Code code) {
         return code.getId() >= Code.SELECT.getId() && code.getId() <= Code.DELETE.getId();
     }
 

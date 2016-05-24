@@ -1,39 +1,39 @@
 package org.tarantool;
 
 
-public abstract class AbstractTarantoolConnection16<T,O,P,R> {
+public abstract class AbstractTarantoolConnection16<Space, Tuple, Operation, Result> {
 
-    public abstract R exec(Code code, Object... args);
+    public abstract Result exec(Code code, Object... args);
 
-    public R select(T space, T index, O key, int offset, int limit, int iterator) {
+    public Result select(Space space, Space index, Tuple key, int offset, int limit, int iterator) {
         return exec(Code.SELECT, Key.SPACE, space, Key.INDEX, index, Key.KEY, key, Key.ITERATOR, iterator, Key.LIMIT, limit, Key.OFFSET, offset);
     }
 
-    public R insert(T space, O tuple) {
+    public Result insert(Space space, Tuple tuple) {
         return exec(Code.INSERT, Key.SPACE, space, Key.TUPLE, tuple);
     }
 
-    public R replace(T space, O tuple) {
+    public Result replace(Space space, Tuple tuple) {
         return exec(Code.REPLACE, Key.SPACE, space, Key.TUPLE, tuple);
     }
 
-    public R update(T space, O key, P... args) {
+    public Result update(Space space, Tuple key, Operation... args) {
         return exec(Code.UPDATE, Key.SPACE, space, Key.KEY, key, Key.TUPLE, args);
     }
 
-    public R upsert(T space, O key, O def, P... args) {
+    public Result upsert(Space space, Tuple key, Tuple def, Operation... args) {
         return exec(Code.UPSERT, Key.SPACE, space, Key.KEY, key, Key.TUPLE, def, Key.UPSERT_OPS, args);
     }
 
-    public R delete(T space, O key) {
+    public Result delete(Space space, Tuple key) {
         return exec(Code.DELETE, Key.SPACE, space, Key.KEY, key);
     }
 
-    public R call(String function, Object... args) {
+    public Result call(String function, Object... args) {
         return exec(Code.CALL, Key.FUNCTION, function, Key.TUPLE, args);
     }
 
-    public R eval(String expression, Object... args) {
+    public Result eval(String expression, Object... args) {
         return exec(Code.EVAL, Key.EXPRESSION, expression, Key.TUPLE, args);
     }
 

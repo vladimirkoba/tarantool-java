@@ -11,14 +11,11 @@ public class ConnectionState {
     protected EnumMap<Key, Object> header = new EnumMap<Key, Object>(Key.class);
     protected EnumMap<Key, Object> body = new EnumMap<Key, Object>(Key.class);
 
-    protected ByteBufferStreams buffer = new ByteBufferStreams(ByteBuffer.allocate(32 * 1024), 1.1d);
+    protected ByteBufferStreams buffer = new ByteBufferStreams(ByteBuffer.allocateDirect(32 * 1024), 1.1d);
 
 
     public ByteBuffer getWelcomeBuffer() {
-        ByteBuffer buf = buffer.getBuf();
-        buf.clear();
-        buf.limit(64);
-        return buf;
+        return ByteBuffer.allocate(64);
     }
 
     public ByteBuffer getLengthReadBuffer() {
@@ -33,12 +30,12 @@ public class ConnectionState {
         buf.limit(buf.position());
         buf.rewind();
         try {
-            long size = (Long) MsgPackLite.unpack(buffer.asInputStream(), 0);
+            int size = ((Number) MsgPackLite.unpack(buffer.asInputStream(), 0)).intValue();
             buf.clear();
-            buffer.checkCapacity((int) size);
+            buffer.checkCapacity(size);
             buf = buffer.getBuf();
-            buf.position(0);
-            buf.limit((int)size);
+            buf.rewind();
+            buf.limit(size);
             return buf;
         } catch (IOException e) {
             //this shouldn't happens
@@ -46,16 +43,16 @@ public class ConnectionState {
         }
     }
 
-    public void unpack() {
+    public void unpack(int msgPackOptions) {
         ByteBuffer buf = buffer.getBuf();
         buf.limit(buf.position());
         buf.rewind();
         body.clear();
         header.clear();
         try {
-            toKeyMap(MsgPackLite.unpack(buffer.asInputStream(), MsgPackLite.OPTION_UNPACK_RAW_AS_STRING), header);
+            toKeyMap(MsgPackLite.unpack(buffer.asInputStream(), msgPackOptions), header);
             if (buf.remaining() > 0) {
-                toKeyMap(MsgPackLite.unpack(buffer.asInputStream(), MsgPackLite.OPTION_UNPACK_RAW_AS_STRING), body);
+                toKeyMap(MsgPackLite.unpack(buffer.asInputStream(), msgPackOptions), body);
             }
         } catch (IOException e) {
             //this shouldn't happens

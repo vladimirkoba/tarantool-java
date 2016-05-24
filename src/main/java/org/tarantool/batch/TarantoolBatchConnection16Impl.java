@@ -31,7 +31,7 @@ public class TarantoolBatchConnection16Impl extends TarantoolConnection16Base<In
     }
 
     protected void write(BatchedQuery q) {
-        write(state.pack(q.code, q.id, q.args));
+        write(in.pack(q.code, q.id, q.args));
     }
 
     @Override
@@ -42,11 +42,11 @@ public class TarantoolBatchConnection16Impl extends TarantoolConnection16Base<In
         while (!batch.isEmpty()) {
             try {
                 readPacket();
-                Long syncId = (Long) state.getHeader().get(Key.SYNC);
+                Long syncId = (Long) in.getHeader().get(Key.SYNC);
                 BatchedQuery q = batch.remove(syncId);
-                q.result.setResult((List) state.getBody().get(Key.DATA));
+                q.result.setResult((List) in.getBody().get(Key.DATA));
             } catch (TarantoolException e) {
-                Long syncId = (Long) state.getHeader().get(Key.SYNC);
+                Long syncId = (Long) in.getHeader().get(Key.SYNC);
                 BatchedQuery q = batch.remove(syncId);
                 q.result.setError(e);
             }
