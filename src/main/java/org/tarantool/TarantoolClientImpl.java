@@ -11,7 +11,10 @@ import java.nio.channels.SocketChannel;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,15 +26,13 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.tarantool.async.AsyncQuery;
-import org.tarantool.schema.TarantoolConnectionSchemaAware;
-
-public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, Object, Object, Future<List>> implements TarantoolConnectionSchemaAware, TarantoolClient, TarantoolConnection16Ops<Integer, Object, Object, Future<List>> {
+public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, Object, Object, Future<List>> implements TarantoolClient, TarantoolConnection16Ops<Integer, Object, Object, Future<List>> {
     protected SocketChannel channel;
     protected String salt;
+    protected volatile Exception thumbstone;
 
     protected AtomicLong syncId = new AtomicLong();
-    protected Map<Long, AsyncQuery<List>> futures = new ConcurrentHashMap<Long, AsyncQuery<List>>(1024 * 16);
+    protected Map<Long, AsyncQuery<List>> futures;
 
     protected int msgPackOptions = MsgPackLite.OPTION_UNPACK_NUMBER_AS_LONG | MsgPackLite.OPTION_UNPACK_RAW_AS_STRING;
 
@@ -50,14 +51,13 @@ public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, 
     final Condition flushDone = writeLock.newCondition();
     protected ByteBuffer outBuffer;
     protected volatile long lastFlush;
-    private final long batchTimeout;
+    private long batchTimeout = 0L;
 
     /**
      * Interfaces
      */
     protected SyncOps syncOps = new SyncOps();
     protected FireAndForgetOps fireAndForgetOps = new FireAndForgetOps();
-
 
     protected Thread reader = new Thread(new Runnable() {
         @Override
@@ -74,9 +74,10 @@ public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, 
     });
 
 
-    public TarantoolClientImpl(SocketChannel channel, long batchTimeout,int predictedFutures) {
+    public TarantoolClientImpl(SocketChannel channel, long batchTimeout, int predictedFutures) {
         try {
             this.channel = channel;
+            this.futures = new ConcurrentHashMap<Long, AsyncQuery<List>>(predictedFutures);
             this.outBuffer = batchTimeout > 0 ? ByteBuffer.allocateDirect(channel.socket().getSendBufferSize()) : null;
             this.batchTimeout = batchTimeout;
             final InputStream inputStream = new BufferedInputStream(channel.socket().getInputStream(), channel.socket().getReceiveBufferSize());
@@ -100,17 +101,17 @@ public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, 
             String firstLine = new String(bytes);
             if (!firstLine.startsWith("Tarantool")) {
                 channel.close();
-                throw new CommunicationException("Welcome message should starts with tarantool but starts with '" + firstLine + "'");
+                die("Welcome message should starts with tarantool but starts with '" + firstLine + "'", new IllegalStateException("Invalid welcome packet"));
             }
             is.readFully(bytes);
             this.salt = new String(bytes);
         } catch (IOException e) {
-            throw new CommunicationException("Can't connect with tarantool", e);
+            die("Can't connect with tarantool", e);
         }
         try {
             channel.socket().setSoTimeout(0);
         } catch (SocketException e) {
-            throw new CommunicationException("Couldn't disable read timeout", e);
+            die("Couldn't disable read timeout", e);
         }
         reader.start();
         if (batchTimeout > 0) {
@@ -121,13 +122,33 @@ public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, 
     @Override
     public AsyncQuery<List> exec(Code code, Object... args) {
         AsyncQuery<List> q = new AsyncQuery<List>(syncId.incrementAndGet(), code, args);
-        futures.put(q.getId(),q);
+        if (isDead(q)) {
+            return q;
+        }
+        futures.put(q.getId(), q);
         try {
-            write(code, q.getId(), args);
+            write(code, q.getId(), null, args);
         } catch (Exception e) {
             q.setError(e);
         }
         return q;
+    }
+
+    protected synchronized void die(String message, Exception cause) {
+        this.thumbstone = cause;
+        CommunicationException error = new CommunicationException(message, cause);
+        while (!futures.isEmpty()) {
+            Iterator<Map.Entry<Long, AsyncQuery<List>>> iterator = futures.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<Long, AsyncQuery<List>> elem = iterator.next();
+                if (elem != null) {
+                    elem.getValue().setError(cause);
+                }
+                iterator.remove();
+            }
+        }
+        close();
+        throw error;
     }
 
 
@@ -158,24 +179,20 @@ public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, 
             syncGet(exec(Code.AUTH, Key.USER_NAME, username, Key.TUPLE, auth));
 
         } catch (NoSuchAlgorithmException e) {
-            throw new CommunicationException("Can't use sha-1", e);
+            die("Can't use sha-1", e);
         }
     }
 
-
-    @Override
-    public Long getSchemaId() {
-        return (Long) headers.get(Key.SCHEMA_ID);
-    }
-
-
-    private void write(Code code, Long syncId, Object... args) throws IOException {
+    private void write(Code code, Long syncId, Long schemaId, Object... args) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream(128);
         DataOutputStream ds = new DataOutputStream(bos);
         Map<Key, Object> header = new EnumMap<Key, Object>(Key.class);
         Map<Key, Object> body = new EnumMap<Key, Object>(Key.class);
         header.put(Key.CODE, code);
         header.put(Key.SYNC, syncId);
+        if (schemaId != null) {
+            header.put(Key.SCHEMA_ID, schemaId);
+        }
         if (args != null) {
             for (int i = 0, e = args.length; i < e; i += 2) {
                 Object value = args[i + 1];
@@ -228,7 +245,7 @@ public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, 
 
         }
         if (code < 0) {
-            throw new CommunicationException("Can't write bytes");
+            die("Can't write bytes", new SocketException("write failed"));
         }
     }
 
@@ -253,7 +270,7 @@ public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, 
                 if (Thread.interrupted()) {
                     return;
                 } else {
-                    throw new CommunicationException("Cant read bytes", e);
+                    die("Cant read bytes", e);
                 }
             }
         }
@@ -270,7 +287,7 @@ public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, 
                             flush();
                             lastFlush = System.currentTimeMillis();
                         } catch (IOException e) {
-                            throw new CommunicationException("Can't write bytes", e);
+                            die("Can't write bytes", e);
                         }
                     }
                 } finally {
@@ -364,7 +381,9 @@ public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, 
         @Override
         public Void exec(Code code, Object... args) {
             try {
-                write(code, syncId.incrementAndGet(), args);
+                if (thumbstone == null) {
+                    write(code, syncId.incrementAndGet(), null, args);
+                }
             } catch (Exception e) {
 
             }
@@ -382,6 +401,14 @@ public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, 
         }
     }
 
+    private boolean isDead(AsyncQuery<List> q) {
+        if (TarantoolClientImpl.this.thumbstone != null) {
+            q.setError(new CommunicationException("Connection is dead", thumbstone));
+            return true;
+        }
+        return false;
+    }
+
 
     protected class ByteArrayOutputStream extends java.io.ByteArrayOutputStream {
         public ByteArrayOutputStream(int size) {
@@ -393,5 +420,7 @@ public class TarantoolClientImpl extends AbstractTarantoolConnection16<Integer, 
         }
     }
 
-
+    public Exception getThumbstone() {
+        return thumbstone;
+    }
 }

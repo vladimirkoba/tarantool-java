@@ -1,4 +1,4 @@
-package org.tarantool.async;
+package org.tarantool;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;

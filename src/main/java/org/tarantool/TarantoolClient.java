@@ -1,6 +1,7 @@
 package org.tarantool;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Future;
 
 public interface TarantoolClient {
