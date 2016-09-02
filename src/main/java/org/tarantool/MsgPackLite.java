@@ -315,7 +315,7 @@ public class MsgPackLite {
         }
 
         byte[] data = new byte[size];
-        in.read(data);
+        in.readFully(data);
 
         if ((options & OPTION_UNPACK_RAW_AS_BYTE_BUFFER) != 0) {
             return ByteBuffer.wrap(data);
