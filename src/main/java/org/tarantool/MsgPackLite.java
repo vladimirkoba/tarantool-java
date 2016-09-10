@@ -225,9 +225,9 @@ public class MsgPackLite {
         case MP_DOUBLE:
             return in.readDouble();
         case MP_UINT8:
-            return val(in.read(), options);//read single byte, return as int
+            return val(in.read(), options);//received single byte, return as int
         case MP_UINT16:
-            return val(in.readShort() & MAX_16BIT, options);//read short, trick Java into treating it as unsigned, return int
+            return val(in.readShort() & MAX_16BIT, options);//received short, trick Java into treating it as unsigned, return int
         case MP_UINT32:
             long n = in.readInt() & MAX_32BIT;
             return val((options & OPTION_UNPACK_NUMBER_UINT32_AS_INT) > 0 && n <= Integer.MAX_VALUE ? (int) n : n, options);

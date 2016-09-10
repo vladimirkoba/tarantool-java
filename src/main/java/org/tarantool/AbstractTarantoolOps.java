@@ -1,7 +1,7 @@
 package org.tarantool;
 
 
-public abstract class AbstractTarantoolConnection16<Space, Tuple, Operation, Result> {
+public abstract class AbstractTarantoolOps<Space, Tuple, Operation, Result> {
 
     public abstract Result exec(Code code, Object... args);
 

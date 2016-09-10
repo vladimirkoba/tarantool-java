@@ -1,7 +1,7 @@
 package org.tarantool;
 
 
-public interface TarantoolConnection16Ops<T,O,P,R> {
+public interface TarantoolConnectionOps<T,O,P,R> {
     R select(T space, T index, O key, int offset, int limit, int iterator);
 
 
