@@ -11,10 +11,10 @@ public class TarantoolClientStats {
     @Override
     public String toString() {
         return "TarantoolClientStats" +
-                "\nrunning= " + (System.currentTimeMillis() - start) + "ms" +
-                "\nbuffered= " + buffered +
-                "\nreceived= " + received +
-                "\ndirectWrite= " + directWrite +
-                "\nbufferedWrites= " + bufferedWrites + "\n";
+                "\nrunning = " + (System.currentTimeMillis() - start) + "ms" +
+                "\nbuffered = " + buffered +
+                "\nreceived = " + received +
+                "\ndirectWrite = " + directWrite +
+                "\nbufferedWrites = " + bufferedWrites + "\n";
     }
 }

@@ -21,8 +21,6 @@ public interface TarantoolConnectionOps<T,O,P,R> {
 
     R eval(String expression, Object... args);
 
-    void auth(String username, String password);
-
     void ping();
 
     void close();

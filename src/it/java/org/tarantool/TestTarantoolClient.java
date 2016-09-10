@@ -26,23 +26,42 @@ public class TestTarantoolClient {
       box.schema.user.grant('test', 'execute,received,write', 'universe')
       box.space.tester:format{{name='id',type='num'},{name='text',type='str'}}
      */
-    public static void main(String[] args) throws IOException, InterruptedException, ExecutionException, SQLException {
-        SocketChannel channel = SocketChannel.open(new InetSocketAddress("localhost", 3301));
-        final int calls = 120000;
-        final AtomicLong c = new AtomicLong(0);
+    public static class TarantoolClientTestImpl extends TarantoolClientImpl {
         final Semaphore s = new Semaphore(0);
-        TarantoolClientOptions options = new TarantoolClientOptions();
-        final TarantoolClientImpl client = new TarantoolClientImpl(channel, options) {
+        public TarantoolClientTestImpl(SocketChannelProvider socketProvider, TarantoolClientConfig options) {
+            super(socketProvider, options);
+        }
+
+        @Override
+        protected void complete(long code, FutureImpl<List> q) {
+            super.complete(code, q);
+            if (code != 0) {
+                System.out.println(code);
+            }
+            s.release();
+        }
+    }
+    public static void main(String[] args) throws IOException, InterruptedException, ExecutionException, SQLException {
+        final int calls = 1200000;
+
+        TarantoolClientConfig config = new TarantoolClientConfig();
+        config.username = "test";
+        config.password = "test";
+        SocketChannelProvider socketChannelProvider = new SocketChannelProvider() {
             @Override
-            protected void complete(long code, FutureImpl<List> q) {
-                super.complete(code, q);
-                c.incrementAndGet();
-                s.release();
+            public SocketChannel get(int retryNumber, Throwable lastError) {
+                if (lastError != null) {
+                    lastError.printStackTrace();
+                }
+                try {
+                    return SocketChannel.open(new InetSocketAddress("localhost", 3301));
+                } catch (IOException e) {
+                    throw new IllegalStateException(e);
+                }
             }
         };
+        final TarantoolClientTestImpl client = new TarantoolClientTestImpl(socketChannelProvider, config);
 
-        TarantoolConnectionOps<Integer, Object, Object, List> con = client.syncOps();
-        con.auth("test", "test");
 
         long st = System.currentTimeMillis();
         final int threads = 16;
@@ -61,9 +80,9 @@ public class TestTarantoolClient {
         exec.shutdown();
         exec.awaitTermination(1, TimeUnit.HOURS);
         System.out.println("pushed " + (System.currentTimeMillis() - st) + "ms \n" + client.stats.toString());
-        s.acquire(calls);
+        client.s.acquire(calls);
         client.close();
-        System.out.println("completed "+(System.currentTimeMillis() - st) + "ms \n" + client.stats.toString());
+        System.out.println("completed " + (System.currentTimeMillis() - st) + "ms \n" + client.stats.toString());
 
     }
 }

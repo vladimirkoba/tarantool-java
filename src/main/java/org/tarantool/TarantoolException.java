@@ -9,7 +9,7 @@ package org.tarantool;
 public class TarantoolException extends RuntimeException {
 
 	private static final long serialVersionUID = 1L;
-	int code;
+	long code;
 
 	/**
 	 * <p>
@@ -18,7 +18,7 @@ public class TarantoolException extends RuntimeException {
 	 * 
 	 * @return a int.
 	 */
-	public int getCode() {
+	public long getCode() {
 		return code;
 	}
 
@@ -34,7 +34,7 @@ public class TarantoolException extends RuntimeException {
 	 * @param cause
 	 *            a {@link java.lang.Throwable} object.
 	 */
-	public TarantoolException(int code, String message, Throwable cause) {
+	public TarantoolException(long code, String message, Throwable cause) {
 		super(message, cause);
 		this.code = code;
 
@@ -50,7 +50,7 @@ public class TarantoolException extends RuntimeException {
 	 * @param message
 	 *            a {@link java.lang.String} object.
 	 */
-	public TarantoolException(int code, String message) {
+	public TarantoolException(long code, String message) {
 		super(message);
 		this.code = code;
 

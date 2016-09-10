@@ -1,6 +1,14 @@
 package org.tarantool;
 
-public class TarantoolClientOptions {
+
+public class TarantoolClientConfig {
+
+    /**
+     * username and password for authorization
+     */
+    public String username;
+
+    public String password;
 
     /**
      * default ByteArrayOutputStream size  when make query serialization
@@ -31,5 +39,4 @@ public class TarantoolClientOptions {
      * not put request into the shared buffer if request size is ge directWriteFactor * sharedBufferSize
      */
     public double directWriteFactor = 0.5d;
-
 }

@@ -9,8 +9,6 @@ import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.Iterator;
@@ -21,18 +19,24 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
 
 
 public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, Object, Future<List>> implements TarantoolClient, TarantoolConnectionOps<Integer, Object, Object, Future<List>> {
 
-    protected TarantoolClientOptions options;
-    protected TarantoolClientStats stats;
-
+    /**
+     * External
+     */
+    protected TarantoolClientConfig options;
+    protected SocketChannelProvider socketProvider;
+    /**
+     * Connection state
+     */
     protected SocketChannel channel;
     protected String salt;
     protected volatile Exception thumbstone;
-
     protected AtomicLong syncId = new AtomicLong();
     protected Map<Long, FutureImpl<List>> futures;
 
@@ -59,6 +63,13 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     protected SyncOps syncOps = new SyncOps();
     protected FireAndForgetOps fireAndForgetOps = new FireAndForgetOps();
 
+
+    /**
+     * Inner
+     */
+    protected TarantoolClientStats stats;
+
+
     protected Thread reader = new Thread(new Runnable() {
         @Override
         public void run() {
@@ -74,53 +85,91 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     });
 
 
-    public TarantoolClientImpl(SocketChannel channel, TarantoolClientOptions options) {
-        try {
-            this.options = options;
-            this.stats = new TarantoolClientStats();
-            this.channel = channel;
-            this.futures = new ConcurrentHashMap<Long, FutureImpl<List>>(options.predictedFutures);
-            this.sharedBuffer = ByteBuffer.allocateDirect(options.sharedBufferSize);
-            final InputStream inputStream = new BufferedInputStream(channel.socket().getInputStream(), channel.socket().getReceiveBufferSize());
-            InputStream counter = new InputStream() {
-                @Override
-                public int read() throws IOException {
-                    bytesRead++;
-                    return inputStream.read();
-                }
 
-                @Override
-                public int read(byte[] b, int off, int len) throws IOException {
-                    int read = inputStream.read(b, off, len);
-                    bytesRead += read;
-                    return read;
-                }
-            };
-            is = new DataInputStream(counter);
-            byte[] bytes = new byte[64];
-            is.readFully(bytes);
-            String firstLine = new String(bytes);
-            if (!firstLine.startsWith("Tarantool")) {
-                channel.close();
-                die("Welcome message should starts with tarantool but starts with '" + firstLine + "'", new IllegalStateException("Invalid welcome packet"));
+    protected  Thread connector = new Thread(new Runnable() {
+        @Override
+        public void run() {
+            reconnect(0, thumbstone);
+            LockSupport.park();
+        }
+    });
+
+    protected void connect(SocketChannel channel) throws Exception {
+        final InputStream inputStream = new BufferedInputStream(channel.socket().getInputStream(), channel.socket().getReceiveBufferSize());
+        InputStream counter = new InputStream() {
+            @Override
+            public int read() throws IOException {
+                bytesRead++;
+                return inputStream.read();
             }
-            is.readFully(bytes);
-            this.salt = new String(bytes);
-            reader.setName("Tarantool " + channel.getRemoteAddress().toString() + " reader");
-            writer.setName("Tarantool " + channel.getRemoteAddress().toString() + " writer");
-            writer.setPriority(options.writerThreadPriority);
-            reader.setPriority(options.readerThreadPriority);
-            reader.start();
-            writer.start();
-        } catch (IOException e) {
-            die("Can't connect with tarantool", e);
-        }
-        try {
-            channel.socket().setSoTimeout(0);
-        } catch (SocketException e) {
-            die("Couldn't disable received timeout", e);
-        }
 
+            @Override
+            public int read(byte[] b, int off, int len) throws IOException {
+                int read = inputStream.read(b, off, len);
+                bytesRead += read;
+                return read;
+            }
+        };
+        is = new DataInputStream(counter);
+        byte[] bytes = new byte[64];
+        is.readFully(bytes);
+        String firstLine = new String(bytes);
+        if (!firstLine.startsWith("Tarantool")) {
+            channel.close();
+            throw new CommunicationException("Welcome message should starts with tarantool but starts with '" + firstLine + "'", new IllegalStateException("Invalid welcome packet"));
+        }
+        is.readFully(bytes);
+        this.salt = new String(bytes);
+        if (options.username != null && options.password != null) {
+            this.channel = channel;
+            auth(options.username, options.password);
+        }
+        this.thumbstone = null;
+        channel.socket().setSoTimeout(0);
+        this.channel = channel;
+        reader.setName("Tarantool " + channel.getRemoteAddress().toString() + " reader");
+        writer.setName("Tarantool " + channel.getRemoteAddress().toString() + " writer");
+        writer.setPriority(options.writerThreadPriority);
+        reader.setPriority(options.readerThreadPriority);
+        reader.start();
+        writer.start();
+
+
+    }
+
+
+    public TarantoolClientImpl(SocketChannelProvider socketProvider, TarantoolClientConfig options) {
+        this.thumbstone = new CommunicationException("Not connection, initializing connection");
+        this.options = options;
+        this.socketProvider = socketProvider;
+        this.stats = new TarantoolClientStats();
+        this.futures = new ConcurrentHashMap<Long, FutureImpl<List>>(options.predictedFutures);
+        this.sharedBuffer = ByteBuffer.allocateDirect(options.sharedBufferSize);
+        this.connector.setDaemon(true);
+        this.connector.setName("Tarantool connector");
+        reconnect(-1, null);
+        return;
+    }
+
+    private void reconnect(int retry, Throwable lastError) {
+        SocketChannel channel;
+        while (!Thread.interrupted()) {
+            channel = socketProvider.get(retry--, lastError);
+            try {
+                connect(channel);
+                return;
+            } catch (Exception e) {
+                if (channel != null) {
+                    try {
+                        channel.close();
+                    } catch (IOException ignored) {
+
+                    }
+
+                }
+                lastError = e;
+            }
+        }
     }
 
     @Override
@@ -131,7 +180,7 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
         }
         futures.put(q.getId(), q);
         try {
-            write(code, q.getId(), null, args);
+            write(code, q.getId(), null, false, args);
         } catch (Exception e) {
             futures.remove(q.getId());
             q.setError(e);
@@ -140,8 +189,7 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     }
 
     protected synchronized void die(String message, Exception cause) {
-        this.thumbstone = cause;
-        CommunicationException error = new CommunicationException(message, cause);
+        this.thumbstone = new CommunicationException(message, cause);
         while (!futures.isEmpty()) {
             Iterator<Map.Entry<Long, FutureImpl<List>>> iterator = futures.entrySet().iterator();
             while (iterator.hasNext()) {
@@ -153,7 +201,12 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
             }
         }
         close();
-        throw error;
+        if(connector.getState() == Thread.State.NEW) {
+            connector.start();
+        } else if (connector.getState() == Thread.State.WAITING) {
+            LockSupport.unpark(connector);
+        };
+
     }
 
 
@@ -162,33 +215,33 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     }
 
 
-    public void auth(String username, final String password) {
-        try {
-            final MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
-            List auth = new ArrayList(2);
-            auth.add("chap-sha1");
+    protected void auth(String username, final String password) throws Exception {
+        final MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+        List auth = new ArrayList(2);
+        auth.add("chap-sha1");
 
-            byte[] p = sha1.digest(password.getBytes());
+        byte[] p = sha1.digest(password.getBytes());
 
-            sha1.reset();
-            byte[] p2 = sha1.digest(p);
+        sha1.reset();
+        byte[] p2 = sha1.digest(p);
 
-            sha1.reset();
-            sha1.update(Base64.decode(salt), 0, 20);
-            sha1.update(p2);
-            byte[] scramble = sha1.digest();
-            for (int i = 0, e = 20; i < e; i++) {
-                p[i] ^= scramble[i];
-            }
-            auth.add(p);
-            syncGet(exec(Code.AUTH, Key.USER_NAME, username, Key.TUPLE, auth));
-
-        } catch (NoSuchAlgorithmException e) {
-            die("Can't use sha-1", e);
+        sha1.reset();
+        sha1.update(Base64.decode(salt), 0, 20);
+        sha1.update(p2);
+        byte[] scramble = sha1.digest();
+        for (int i = 0, e = 20; i < e; i++) {
+            p[i] ^= scramble[i];
+        }
+        auth.add(p);
+        write(Code.AUTH, 0L, null, true, Key.USER_NAME, username, Key.TUPLE, auth);
+        readPacket();
+        long code = ((Long) headers.get(Key.CODE.getId()));
+        if (code != 0) {
+            throw createError(code, body.get(Key.ERROR.getId()));
         }
     }
 
-    private void write(Code code, Long syncId, Long schemaId, Object... args) throws IOException {
+    private void write(Code code, Long syncId, Long schemaId, boolean forceDirect, Object... args) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream(options.defaultRequestSize + 5);
         bos.write(new byte[5]);
         DataOutputStream ds = new DataOutputStream(bos);
@@ -211,14 +264,12 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
         ByteBuffer buffer = bos.toByteBuffer();
         buffer.put(0, (byte) 0xce);
         buffer.putInt(1, bos.size() - 5);
-        schedule(buffer);
-    }
 
-    private void schedule(ByteBuffer buffer) throws IOException {
-        if (sharedBuffer.capacity() * options.directWriteFactor <= buffer.limit()) {
+
+        if (sharedBuffer.capacity() * options.directWriteFactor <= buffer.limit() || forceDirect) {
             writeLock.lock();
             try {
-                writeFully(buffer);
+                writeFully(channel, buffer);
                 stats.directWrite++;
             } finally {
                 writeLock.unlock();
@@ -244,21 +295,8 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
 
     }
 
-    private void writeFully(ByteBuffer[] buffers, int length, long bytes) throws IOException {
-        long written;
-        while ((written = channel.write(buffers, 0, length)) > -1) {
-            bytes -= written;
-            if (bytes == 0) {
-                break;
-            }
 
-        }
-        if (written < 0) {
-            die("Can't write bytes", new SocketException("write failed"));
-        }
-    }
-
-    private void writeFully(ByteBuffer buffer) throws IOException {
+    private void writeFully(SocketChannel channel, ByteBuffer buffer) throws IOException {
         long written = 0;
         while (buffer.remaining() > 0 && (written = channel.write(buffer)) > -1) {
         }
@@ -272,53 +310,29 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
         while (!Thread.interrupted()) {
             try {
                 long code;
-                int size = ((Number) MsgPackLite.unpack(is, options.msgPackOptions)).intValue();
-                long mark = bytesRead;
-                is.mark(size);
-                headers = (Map<Integer, Object>) MsgPackLite.unpack(is, options.msgPackOptions);
-                if (bytesRead - mark < size) {
-                    body = (Map<Integer, Object>) MsgPackLite.unpack(is, options.msgPackOptions);
-                }
-                is.skipBytes((int) (bytesRead - mark - size));
+                readPacket();
                 code = (Long) headers.get(Key.CODE.getId());
                 Long syncId = (Long) headers.get(Key.SYNC.getId());
                 FutureImpl<List> future = futures.remove(syncId);
                 stats.received++;
                 complete(code, future);
-            } catch (IOException e) {
-                if (Thread.interrupted()) {
-                    return;
-                } else {
-                    die("Cant received bytes", e);
-                }
+            } catch (Exception e) {
+                die("Cant read answer", e);
             }
         }
     }
 
-    private static class ArrayWrapper<T> extends AbstractList<T> {
-        private final T[] array;
-        private int size;
-
-        public ArrayWrapper(T[] array) {
-            this.array = array;
+    protected void readPacket() throws IOException {
+        int size = ((Number) MsgPackLite.unpack(is, options.msgPackOptions)).intValue();
+        long mark = bytesRead;
+        is.mark(size);
+        headers = (Map<Integer, Object>) MsgPackLite.unpack(is, options.msgPackOptions);
+        if (bytesRead - mark < size) {
+            body = (Map<Integer, Object>) MsgPackLite.unpack(is, options.msgPackOptions);
         }
-
-        @Override
-        public boolean add(T t) {
-            array[size++] = t;
-            return true;
-        }
-
-        @Override
-        public T get(int index) {
-            return array[index];
-        }
-
-        @Override
-        public int size() {
-            return size;
-        }
+        is.skipBytes((int) (bytesRead - mark - size));
     }
+
 
     protected void writeThread() {
         ByteBuffer local = ByteBuffer.allocateDirect(sharedBuffer.capacity());
@@ -339,18 +353,14 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
                 local.flip();
                 writeLock.lock();
                 try {
-                    writeFully(local);
+                    writeFully(channel, local);
                 } finally {
                     writeLock.unlock();
                 }
                 local.clear();
                 stats.bufferedWrites++;
             } catch (IOException e) {
-                if (Thread.interrupted()) {
-                    return;
-                } else {
-                    die("Cant write bytes", e);
-                }
+                die("Cant write bytes", e);
             } catch (InterruptedException e) {
                 return;
             }
@@ -364,9 +374,13 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
                 q.setValue((List) body.get(Key.DATA.getId()));
             } else {
                 Object error = body.get(Key.ERROR.getId());
-                q.setError(new TarantoolException((int) code, error instanceof String ? (String) error : new String((byte[]) error)));
+                q.setError(createError(code, error));
             }
         }
+    }
+
+    protected TarantoolException createError(long code, Object error) {
+        return new TarantoolException(code, error instanceof String ? (String) error : new String((byte[]) error));
     }
 
     protected List syncGet(FutureImpl<List> r) {
@@ -418,11 +432,6 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
         }
 
         @Override
-        public void auth(String username, String password) {
-            TarantoolClientImpl.this.auth(username, password);
-        }
-
-        @Override
         public void close() {
             throw new IllegalStateException("You should close TarantoolClient to make this");
         }
@@ -433,17 +442,12 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
         public Void exec(Code code, Object... args) {
             try {
                 if (thumbstone == null) {
-                    write(code, syncId.incrementAndGet(), null, args);
+                    write(code, syncId.incrementAndGet(), null, false, args);
                 }
             } catch (Exception e) {
 
             }
             return null;
-        }
-
-        @Override
-        public void auth(String username, String password) {
-            TarantoolClientImpl.this.auth(username, password);
         }
 
         @Override
@@ -479,7 +483,7 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
         return stats;
     }
 
-    public TarantoolClientOptions getOptions() {
+    public TarantoolClientConfig getOptions() {
         return options;
     }
 }
