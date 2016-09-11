@@ -28,8 +28,35 @@ public class TestTarantoolClient {
      */
     public static class TarantoolClientTestImpl extends TarantoolClientImpl {
         final Semaphore s = new Semaphore(0);
+
         public TarantoolClientTestImpl(SocketChannelProvider socketProvider, TarantoolClientConfig options) {
             super(socketProvider, options);
+            Thread t = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    try {
+                        System.out.println("closed");
+                        channel.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+            t.setDaemon(true);
+            t.start();
+        }
+
+        @Override
+        protected void reconnect(int retry, Throwable lastError) {
+            if (s != null) {
+                s.release(wait.get());
+            }
+            super.reconnect(retry, lastError);
         }
 
         @Override
@@ -40,7 +67,9 @@ public class TestTarantoolClient {
             }
             s.release();
         }
+
     }
+
     public static void main(String[] args) throws IOException, InterruptedException, ExecutionException, SQLException {
         final int calls = 1200000;
 
@@ -51,7 +80,7 @@ public class TestTarantoolClient {
             @Override
             public SocketChannel get(int retryNumber, Throwable lastError) {
                 if (lastError != null) {
-                    lastError.printStackTrace();
+                    lastError.printStackTrace(System.out);
                 }
                 try {
                     return SocketChannel.open(new InetSocketAddress("localhost", 3301));
@@ -71,7 +100,16 @@ public class TestTarantoolClient {
                 @Override
                 public void run() {
                     for (long i = 0; i < Math.ceil((double) calls / threads); i++) {
-                        client.fireAndForgetOps().replace(512, Arrays.asList(i % 10000, "hello"));
+                        try {
+                            client.fireAndForgetOps().replace(512, Arrays.asList(i % 10000, "hello"));
+                        } catch (Exception e) {
+                            try {
+                                client.waitAlive();
+                            } catch (InterruptedException e1) {
+                                e1.printStackTrace();
+                            }
+                            i--;
+                        }
 
                     }
                 }
