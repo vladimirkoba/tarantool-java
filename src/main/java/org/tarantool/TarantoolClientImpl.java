@@ -1,17 +1,11 @@
 package org.tarantool;
 
-import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.spi.AbstractSelector;
-import java.nio.channels.spi.SelectorProvider;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -79,7 +73,6 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     protected TarantoolClientStats stats;
     protected Thread reader;
     protected Thread writer;
-    protected Selector selector;
 
 
     protected Thread connector = new Thread(new Runnable() {
@@ -127,70 +120,7 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     }
 
     protected void connect(final SocketChannel channel) throws Exception {
-        final InputStream inputStream = new BufferedInputStream(new InputStream() {
-            ByteBuffer buffer = ByteBuffer.allocateDirect(channel.socket().getReceiveBufferSize());
-            {
-                buffer.flip();
-            }
-
-            @Override
-            public int read() throws IOException {
-                if (buffer.remaining() < 1) {
-                    buffer.clear();
-                }
-                int n;
-                while ((n = buffer.remaining()) > 0) {
-                    buffer.flip();
-                    if (n < 0) {
-                        throw new CommunicationException("Can't read bytes");
-                    }
-                }
-                return buffer.get();
-            }
-
-            @Override
-            public int read(byte[] b, int off, int len) throws IOException {
-                if (buffer.remaining() >= len) {
-                    buffer.get(b, off, len);
-                    return len;
-                } else {
-                    int n = buffer.remaining();
-                    buffer.get(b, off, n);
-                    off += n;
-                    buffer.clear();
-                    while ((n = buffer.remaining()) > 0) {
-                        buffer.flip();
-                        if (n < 0) {
-                            throw new CommunicationException("Can't read bytes");
-                        }
-                        for (int i = 0; i < n; i++) {
-                            b[off + i] = buffer.get();
-                        }
-                        len -= n;
-                        off += n;
-                        if (len <= 0) {
-                            return len;
-                        }
-                    }
-                }
-                return len;
-            }
-        }, channel.socket().getReceiveBufferSize());
-        InputStream counter = new InputStream() {
-            @Override
-            public int read() throws IOException {
-                bytesRead++;
-                return inputStream.read();
-            }
-
-            @Override
-            public int read(byte[] b, int off, int len) throws IOException {
-                int read = inputStream.read(b, off, len);
-                bytesRead += read;
-                return read;
-            }
-        };
-        is = new DataInputStream(counter);
+        is = new DataInputStream(new ByteBufferInputStream(channel));
         byte[] bytes = new byte[64];
         is.readFully(bytes);
         String firstLine = new String(bytes);
@@ -391,11 +321,8 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
 
     protected void readThread() {
         try {
-            selector = SelectorProvider.provider().openSelector();
-            channel.register(selector, SelectionKey.OP_READ);
             while (!Thread.interrupted()) {
                 try {
-                    selector.select();
                     long code;
                     readPacket();
                     code = (Long) headers.get(Key.CODE.getId());
@@ -415,10 +342,7 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     }
 
     protected void readPacket() throws IOException {
-        long n0 = System.nanoTime();
         int size = ((Number) MsgPackLite.unpack(is, options.msgPackOptions)).intValue();
-        System.out.println("r0 = " + (System.nanoTime() - n0));
-        long n = System.nanoTime();
         long mark = bytesRead;
         is.mark(size);
         headers = (Map<Integer, Object>) MsgPackLite.unpack(is, options.msgPackOptions);
@@ -426,7 +350,6 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
             body = (Map<Integer, Object>) MsgPackLite.unpack(is, options.msgPackOptions);
         }
         is.skipBytes((int) (bytesRead - mark - size));
-        System.out.println("r = " + (System.nanoTime() - n));
     }
 
 
@@ -507,9 +430,9 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
         if (writer != null) {
             writer.interrupt();
         }
-        if (selector != null) {
+        if (is != null) {
             try {
-                selector.close();
+                is.close();
             } catch (IOException ignored) {
 
             }
