@@ -34,17 +34,17 @@ public class TestTarantoolClient {
             Thread t = new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    try {
-                        System.out.println("closed");
-                        channel.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+//                    try {
+//                        Thread.sleep(1000);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                    try {
+//                        System.out.println("closed");
+//                        channel.close();
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
                 }
             });
             t.setDaemon(true);
@@ -71,16 +71,17 @@ public class TestTarantoolClient {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException, ExecutionException, SQLException {
-        final int calls = 1200000;
+        final int calls = 100000;
 
         TarantoolClientConfig config = new TarantoolClientConfig();
         config.username = "test";
         config.password = "test";
+        config.sharedBufferSize = 0;
         SocketChannelProvider socketChannelProvider = new SocketChannelProvider() {
             @Override
             public SocketChannel get(int retryNumber, Throwable lastError) {
                 if (lastError != null) {
-                    lastError.printStackTrace(System.out);
+                   // lastError.printStackTrace(System.out);
                 }
                 try {
                     return SocketChannel.open(new InetSocketAddress("localhost", 3301));
@@ -92,35 +93,46 @@ public class TestTarantoolClient {
         final TarantoolClientTestImpl client = new TarantoolClientTestImpl(socketChannelProvider, config);
 
 
-        long st = System.currentTimeMillis();
-        final int threads = 16;
-        ExecutorService exec = Executors.newFixedThreadPool(threads);
-        for (int i = 0; i < threads; i++) {
-            exec.execute(new Runnable() {
-                @Override
-                public void run() {
-                    for (long i = 0; i < Math.ceil((double) calls / threads); i++) {
-                        try {
-                            client.fireAndForgetOps().replace(512, Arrays.asList(i % 10000, "hello"));
-                        } catch (Exception e) {
-                            try {
-                                client.waitAlive();
-                            } catch (InterruptedException e1) {
-                                e1.printStackTrace();
-                            }
-                            i--;
-                        }
+        long st = System.nanoTime();
+        client.syncOps().replace(512, Arrays.asList(1, "hello"));
+        System.out.println(System.nanoTime() - st);
 
-                    }
-                }
-            });
-        }
-        exec.shutdown();
-        exec.awaitTermination(1, TimeUnit.HOURS);
-        System.out.println("pushed " + (System.currentTimeMillis() - st) + "ms \n" + client.stats.toString());
-        client.s.acquire(calls);
+        st = System.nanoTime();
+        client.syncOps().replace(512, Arrays.asList(1, "hello"));
+        System.out.println(System.nanoTime() - st);
+
+        st = System.nanoTime();
+        client.syncOps().replace(512, Arrays.asList(1, "hello"));
+        System.out.println(System.nanoTime() - st);
+
+//        final int threads = 1;
+//        ExecutorService exec = Executors.newFixedThreadPool(threads);
+//        for (int i = 0; i < threads; i++) {
+//            exec.execute(new Runnable() {
+//                @Override
+//                public void run() {
+//                    for (long i = 0; i < Math.ceil((double) calls / threads); i++) {
+//                        try {
+//                            client.syncOps().replace(512, Arrays.asList(i % 10000, "hello"));
+//                        } catch (Exception e) {
+//                            try {
+//                                client.waitAlive();
+//                            } catch (InterruptedException e1) {
+//                                e1.printStackTrace();
+//                            }
+//                            i--;
+//                        }
+//
+//                    }
+//                }
+//            });
+//        }
+//        exec.shutdown();
+//        exec.awaitTermination(1, TimeUnit.HOURS);
+//        System.out.println("pushed " + (System.currentTimeMillis() - st) + "ms \n" + client.stats.toString());
+//        client.s.acquire(calls);
         client.close();
-        System.out.println("completed " + (System.currentTimeMillis() - st) + "ms \n" + client.stats.toString());
+        System.out.println("completed " + "ms \n" + client.stats.toString());
 
     }
 }

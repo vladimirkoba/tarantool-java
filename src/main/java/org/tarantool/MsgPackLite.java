@@ -1,6 +1,5 @@
 package org.tarantool;
 
-import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -10,8 +9,7 @@ import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -300,7 +298,7 @@ public class MsgPackLite {
         if (size < 0) {
             throw new IllegalArgumentException("Map to unpack too large for Java (more than 2^31 elements)!");
         }
-        Map ret = new HashMap(size);
+        Map ret = new LinkedHashMap(size);
         for (int i = 0; i < size; ++i) {
             Object key = unpack(in, options);
             Object value = unpack(in, options);
@@ -325,6 +323,7 @@ public class MsgPackLite {
             return data;
         }
     }
+
 
 
 }

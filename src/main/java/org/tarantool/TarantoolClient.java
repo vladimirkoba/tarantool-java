@@ -9,7 +9,7 @@ public interface TarantoolClient {
 
     TarantoolConnectionOps<Integer, Object, Object, Future<List>> asyncOps();
 
-    TarantoolConnectionOps<Integer, Object, Object, Void> fireAndForgetOps();
+    TarantoolConnectionOps<Integer, Object, Object, Long> fireAndForgetOps();
 
     void close();
 
