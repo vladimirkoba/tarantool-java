@@ -17,7 +17,7 @@ public interface TarantoolConnectionOps<T,O,P,R> {
 
     R delete(T space, O key);
 
-    R call(String function, Object... args);
+    Object call(String function, Object... args);
 
     R eval(String expression, Object... args);
 

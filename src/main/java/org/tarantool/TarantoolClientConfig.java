@@ -39,4 +39,9 @@ public class TarantoolClientConfig {
      * not put request into the shared buffer if request size is ge directWriteFactor * sharedBufferSize
      */
     public double directWriteFactor = 0.5d;
+
+    /**
+     *
+     */
+    public boolean useOldCall = true;
 }

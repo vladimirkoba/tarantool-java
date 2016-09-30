@@ -2,6 +2,11 @@ package org.tarantool;
 
 
 public abstract class AbstractTarantoolOps<Space, Tuple, Operation, Result> {
+    protected TarantoolClientConfig config;
+
+    public AbstractTarantoolOps(TarantoolClientConfig config) {
+        this.config = config;
+    }
 
     public abstract Result exec(Code code, Object... args);
 
@@ -30,7 +35,7 @@ public abstract class AbstractTarantoolOps<Space, Tuple, Operation, Result> {
     }
 
     public Result call(String function, Object... args) {
-        return exec(Code.CALL, Key.FUNCTION, function, Key.TUPLE, args);
+        return exec(config.useOldCall ? Code.OLD_CALL : Code.CALL, Key.FUNCTION, function, Key.TUPLE, args);
     }
 
     public Result eval(String expression, Object... args) {
@@ -41,5 +46,6 @@ public abstract class AbstractTarantoolOps<Space, Tuple, Operation, Result> {
     public void ping() {
         exec(Code.PING);
     }
+
 
 }

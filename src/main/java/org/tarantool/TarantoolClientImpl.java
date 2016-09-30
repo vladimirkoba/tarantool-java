@@ -29,7 +29,6 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     /**
      * External
      */
-    protected TarantoolClientConfig options;
     protected SocketChannelProvider socketProvider;
     /**
      * Connection state
@@ -64,8 +63,8 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     /**
      * Interfaces
      */
-    protected SyncOps syncOps = new SyncOps();
-    protected FireAndForgetOps fireAndForgetOps = new FireAndForgetOps();
+    protected SyncOps syncOps;
+    protected FireAndForgetOps fireAndForgetOps;
 
     /**
      * Inner
@@ -83,17 +82,19 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
         }
     });
 
-    public TarantoolClientImpl(SocketChannelProvider socketProvider, TarantoolClientConfig options) {
+    public TarantoolClientImpl(SocketChannelProvider socketProvider, TarantoolClientConfig config) {
+        super(config);
         this.thumbstone = new CommunicationException("Not connection, initializing connection");
         this.alive = new CountDownLatch(1);
-        this.options = options;
         this.socketProvider = socketProvider;
         this.stats = new TarantoolClientStats();
-        this.futures = new ConcurrentHashMap<Long, FutureImpl<List>>(options.predictedFutures);
-        this.sharedBuffer = ByteBuffer.allocateDirect(options.sharedBufferSize);
+        this.futures = new ConcurrentHashMap<Long, FutureImpl<List>>(config.predictedFutures);
+        this.sharedBuffer = ByteBuffer.allocateDirect(config.sharedBufferSize);
         this.writerBuffer = ByteBuffer.allocateDirect(sharedBuffer.capacity());
         this.connector.setDaemon(true);
         this.connector.setName("Tarantool connector");
+        this.syncOps = new SyncOps(config);
+        this.fireAndForgetOps = new FireAndForgetOps(config);
         reconnect(-1, null);
         return;
     }
@@ -130,9 +131,9 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
         }
         is.readFully(bytes);
         this.salt = new String(bytes);
-        if (options.username != null && options.password != null) {
+        if (config.username != null && config.password != null) {
             this.channel = channel;
-            auth(options.username, options.password);
+            auth(config.username, config.password);
         }
         this.thumbstone = null;
         alive.countDown();
@@ -164,8 +165,8 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
 
         reader.setName("Tarantool " + channel.getRemoteAddress().toString() + " reader");
         writer.setName("Tarantool " + channel.getRemoteAddress().toString() + " writer");
-        writer.setPriority(options.writerThreadPriority);
-        reader.setPriority(options.readerThreadPriority);
+        writer.setPriority(config.writerThreadPriority);
+        reader.setPriority(config.readerThreadPriority);
         reader.start();
         writer.start();
         init.await();
@@ -253,7 +254,7 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
 
     protected void write(Code code, Long syncId, Long schemaId, boolean forceDirect, Object... args)
             throws IOException {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(options.defaultRequestSize + 5);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(config.defaultRequestSize + 5);
         bos.write(new byte[5]);
         DataOutputStream ds = new DataOutputStream(bos);
         Map<Key, Object> header = new EnumMap<Key, Object>(Key.class);
@@ -277,7 +278,7 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
         buffer.putInt(1, bos.size() - 5);
 
 
-        if (sharedBuffer.capacity() * options.directWriteFactor <= buffer.limit() || forceDirect) {
+        if (sharedBuffer.capacity() * config.directWriteFactor <= buffer.limit() || forceDirect) {
             writeLock.lock();
             try {
                 writeFully(channel, buffer);
@@ -342,12 +343,12 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     }
 
     protected void readPacket() throws IOException {
-        int size = ((Number) MsgPackLite.unpack(is, options.msgPackOptions)).intValue();
+        int size = ((Number) MsgPackLite.unpack(is, config.msgPackOptions)).intValue();
         long mark = bytesRead;
         is.mark(size);
-        headers = (Map<Integer, Object>) MsgPackLite.unpack(is, options.msgPackOptions);
+        headers = (Map<Integer, Object>) MsgPackLite.unpack(is, config.msgPackOptions);
         if (bytesRead - mark < size) {
-            body = (Map<Integer, Object>) MsgPackLite.unpack(is, options.msgPackOptions);
+            body = (Map<Integer, Object>) MsgPackLite.unpack(is, config.msgPackOptions);
         }
         is.skipBytes((int) (bytesRead - mark - size));
     }
@@ -475,6 +476,10 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     }
 
     protected class SyncOps extends AbstractTarantoolOps<Integer, Object, Object, List> implements TarantoolConnectionOps<Integer, Object, Object, List> {
+        public SyncOps(TarantoolClientConfig config) {
+            super(config);
+        }
+
         @Override
         public List exec(Code code, Object... args) {
             return syncGet(TarantoolClientImpl.this.exec(code, args));
@@ -487,6 +492,10 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
     }
 
     protected class FireAndForgetOps extends AbstractTarantoolOps<Integer, Object, Object, Long> implements TarantoolConnectionOps<Integer, Object, Object, Long> {
+        public FireAndForgetOps(TarantoolClientConfig config) {
+            super(config);
+        }
+
         @Override
         public Long exec(Code code, Object... args) {
             if (thumbstone == null) {
@@ -522,10 +531,6 @@ public class TarantoolClientImpl extends AbstractTarantoolOps<Integer, Object, O
 
     public TarantoolClientStats getStats() {
         return stats;
-    }
-
-    public TarantoolClientConfig getOptions() {
-        return options;
     }
 
     protected class ByteArrayOutputStream extends java.io.ByteArrayOutputStream {

@@ -71,12 +71,12 @@ public class TestTarantoolClient {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException, ExecutionException, SQLException {
-        final int calls = 2000000;
+        final int calls = 1000000;
 
         TarantoolClientConfig config = new TarantoolClientConfig();
         config.username = "test";
         config.password = "test";
-        //config.sharedBufferSize = 0;
+        config.sharedBufferSize = 0;
         SocketChannelProvider socketChannelProvider = new SocketChannelProvider() {
             @Override
             public SocketChannel get(int retryNumber, Throwable lastError) {
@@ -84,23 +84,21 @@ public class TestTarantoolClient {
                    // lastError.printStackTrace(System.out);
                 }
                 try {
-                    return SocketChannel.open(new InetSocketAddress("127.0.0.1", 3301));
+                    return SocketChannel.open(new InetSocketAddress("vcdevm20.mail.msk", 3301));
                 } catch (IOException e) {
                     throw new IllegalStateException(e);
                 }
             }
         };
         final TarantoolClientTestImpl client = new TarantoolClientTestImpl(socketChannelProvider, config);
-//
-//        for(int i = 0;i<100;i++) {
-//            long st = System.nanoTime();
-//            client.syncOps().replace(512, Arrays.asList(1, "hello"));
-//            System.out.println(System.nanoTime() - st);
-//        }
+        for (int i = 0; i < 100; i++) {
+            long st = System.nanoTime();
+            client.syncOps().replace(512, Arrays.asList(i % 10000, "hello"));
+            System.out.println(System.nanoTime() - st);
 
-
+        }
         long st = System.currentTimeMillis();
-        final int threads = 4;
+        final int threads = 16;
         ExecutorService exec = Executors.newFixedThreadPool(threads);
         for (int i = 0; i < threads; i++) {
             exec.execute(new Runnable() {
@@ -108,7 +106,7 @@ public class TestTarantoolClient {
                 public void run() {
                     for (long i = 0; i < Math.ceil((double) calls / threads); i++) {
                         try {
-                            client.fireAndForgetOps().replace(512, Arrays.asList(i % 10000, "hello"));
+                            client.asyncOps().replace(512, Arrays.asList(i % 10000, "hello"));
                         } catch (Exception e) {
                             try {
                                 client.waitAlive();
