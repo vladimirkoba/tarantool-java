@@ -76,7 +76,7 @@ public class TestTarantoolClient {
         TarantoolClientConfig config = new TarantoolClientConfig();
         config.username = "test";
         config.password = "test";
-        config.sharedBufferSize = 0;
+        //config.sharedBufferSize = 0;
         SocketChannelProvider socketChannelProvider = new SocketChannelProvider() {
             @Override
             public SocketChannel get(int retryNumber, Throwable lastError) {
