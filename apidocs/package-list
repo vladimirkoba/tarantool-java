@@ -1,12 +1,1 @@
-org.tarantool.core
-org.tarantool.core.cmd
-org.tarantool.core.exception
-org.tarantool.core.impl
-org.tarantool.core.proto
-org.tarantool.example
-org.tarantool.facade
-org.tarantool.facade.annotation
-org.tarantool.facade.chain
-org.tarantool.pool
-org.tarantool.snapshot
-org.tarantool.test
+org.tarantool
