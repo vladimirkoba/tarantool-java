@@ -9,7 +9,6 @@ import java.sql.Statement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JdbcResultSetMetaDataIT extends AbstractJdbcIT {
     @Test
@@ -18,14 +17,16 @@ public class JdbcResultSetMetaDataIT extends AbstractJdbcIT {
         assertNotNull(stmt);
         ResultSet rs = stmt.executeQuery("SELECT * FROM test_types");
         assertNotNull(rs);
-        assertTrue(rs.next());
 
         ResultSetMetaData rsMeta = rs.getMetaData();
 
-        assertEquals(19, rsMeta.getColumnCount());
+        int colCount = 1 + TntSqlType.values().length;
+        assertEquals(colCount, rsMeta.getColumnCount());
+        assertEquals("KEY", rsMeta.getColumnName(1));
 
-        for (int i = 1; i <= 19; i++)
-            assertEquals("F" + i, rsMeta.getColumnName(i));
+        for (int i = 2; i <= colCount; i++) {
+            assertEquals("F" + (i - 2), rsMeta.getColumnName(i));
+        }
 
         rs.close();
         stmt.close();

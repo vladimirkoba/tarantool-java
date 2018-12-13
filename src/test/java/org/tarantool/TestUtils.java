@@ -71,6 +71,23 @@ public class TestUtils {
         }
     }
 
+    public static String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(2 * bytes.length);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
+    public static byte[] fromHex(String hex) {
+        assert hex.length() % 2 == 0;
+        byte[] data = new byte[hex.length() / 2];
+        for (int i = 0; i < data.length; i++) {
+            data[i] = Integer.decode("0x" + hex.charAt(i*2) + hex.charAt(i*2+1)).byteValue();
+        }
+        return data;
+    }
+
     /**
      * See waitReplication(TarantoolClientImpl client, int timeout).
      */

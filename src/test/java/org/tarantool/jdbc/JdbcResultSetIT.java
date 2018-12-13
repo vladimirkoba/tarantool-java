@@ -4,17 +4,17 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class JdbcResultSetIT extends AbstractJdbcIT {
+public class JdbcResultSetIT extends JdbcTypesIT {
     private Statement stmt;
 
     @BeforeEach
@@ -51,64 +51,76 @@ public class JdbcResultSetIT extends AbstractJdbcIT {
     }
 
     @Test
-    public void testGetColumnByIdx() throws SQLException {
-        ResultSet rs = stmt.executeQuery("SELECT * FROM test_types");
-        assertNotNull(rs);
-        assertTrue(rs.next());
-
-        assertEquals(testRow[0], rs.getInt(1));//INT
-        assertEquals(testRow[1], rs.getString(2));//CHAR
-        assertEquals(testRow[2], rs.getString(3));//VARCHAR
-        assertEquals(testRow[3], rs.getString(4)); //LONGVARCHAR
-        assertEquals(testRow[4], rs.getBigDecimal(5));// NUMERIC
-        assertEquals(testRow[5], rs.getBigDecimal(6));// DECIMAL
-        assertEquals(testRow[6], rs.getBoolean(7));//BIT
-        assertEquals(testRow[7], rs.getByte(8));//TINYINT
-        assertEquals(testRow[8], rs.getShort(9));//SMALLINT
-        assertEquals(testRow[9], rs.getInt(10));//INTEGER
-        assertEquals(testRow[10], rs.getLong(11));//BIGINT
-        assertEquals((Float)testRow[11], rs.getFloat(12), 1e-10f);//REAL
-        assertEquals((Double)testRow[12], rs.getDouble(13), 1e-10d);//FLOAT
-        assertTrue(Arrays.equals((byte[])testRow[13], rs.getBytes(14)));//BINARY
-        assertTrue(Arrays.equals((byte[])testRow[14], rs.getBytes(15)));//VARBINARY
-        assertTrue(Arrays.equals((byte[])testRow[15], rs.getBytes(16)));//LONGVARBINARY
-
-        //Issue#44
-        //assertEquals(testRow[16], rs.getDate(17));//DATE
-        //assertEquals(testRow[17], rs.getTime(18));//TIME
-        assertEquals(testRow[18], rs.getTimestamp(19)); //TIMESTAMP
-
-        rs.close();
+    public void testGetByteColumn() throws SQLException {
+        makeHelper(Byte.class)
+        .setColumns(TntSqlType.INT, TntSqlType.INTEGER)
+        .setValues(BYTE_VALS)
+        .testGetColumn();
     }
 
     @Test
-    public void testGetColumnByName() throws SQLException {
-        ResultSet rs = stmt.executeQuery("SELECT * FROM test_types");
-        assertNotNull(rs);
-        assertTrue(rs.next());
+    public void testGetShortColumn() throws SQLException {
+        makeHelper(Short.class)
+        .setColumns(TntSqlType.INT, TntSqlType.INTEGER)
+        .setValues(SHORT_VALS)
+        .testGetColumn();
+    }
 
-        assertEquals(testRow[0], rs.getInt("F1"));//INT
-        assertEquals(testRow[1], rs.getString("F2"));//CHAR
-        assertEquals(testRow[2], rs.getString("F3"));//VARCHAR
-        assertEquals(testRow[3], rs.getString("F4")); //LONGVARCHAR
-        assertEquals(testRow[4], rs.getBigDecimal("F5"));// NUMERIC
-        assertEquals(testRow[5], rs.getBigDecimal("F6"));// DECIMAL
-        assertEquals(testRow[6], rs.getBoolean("F7"));//BIT
-        assertEquals(testRow[7], rs.getByte("F8"));//TINYINT
-        assertEquals(testRow[8], rs.getShort("F9"));//SMALLINT
-        assertEquals(testRow[9], rs.getInt("F10"));//INTEGER
-        assertEquals(testRow[10], rs.getLong("F11"));//BIGINT
-        assertEquals((Float)testRow[11], rs.getFloat("F12"), 1e-10f);//REAL
-        assertEquals((Double)testRow[12], rs.getDouble("F13"), 1e-10d);//FLOAT
-        assertTrue(Arrays.equals((byte[])testRow[13], rs.getBytes("F14")));//BINARY
-        assertTrue(Arrays.equals((byte[])testRow[14], rs.getBytes("F15")));//VARBINARY
-        assertTrue(Arrays.equals((byte[])testRow[15], rs.getBytes("F16")));//LONGVARBINARY
+    @Test
+    public void testGetIntColumn() throws SQLException {
+        makeHelper(Integer.class)
+        .setColumns(TntSqlType.INT, TntSqlType.INTEGER)
+        .setValues(INT_VALS)
+        .testGetColumn();
+    }
 
-        //Issue#44
-        //assertEquals(testRow[16], rs.getDate("F17"));//DATE
-        //assertEquals(testRow[17], rs.getTime("F18"));//TIME
-        assertEquals(testRow[18], rs.getTimestamp("F19")); //TIMESTAMP
+    @Test
+    public void testGetLongColumn() throws SQLException {
+        makeHelper(Long.class)
+        .setColumns(TntSqlType.INT, TntSqlType.INTEGER)
+        .setValues(LONG_VALS)
+        .testGetColumn();
+    }
 
-        rs.close();
+    @Test
+    public void testGetBigDecimalColumn() throws SQLException {
+        makeHelper(BigDecimal.class)
+        .setColumns(TntSqlType.DECIMAL, TntSqlType.DECIMAL_PREC, TntSqlType.DECIMAL_PREC_SCALE,
+            TntSqlType.NUMERIC, TntSqlType.NUMERIC_PREC, TntSqlType.NUMERIC_PREC_SCALE,
+            TntSqlType.NUM, TntSqlType.NUM_PREC, TntSqlType.NUM_PREC_SCALE)
+        .setValues(BIGDEC_VALS)
+        .testGetColumn();
+    }
+
+    @Test
+    public void testGetFloatColumn() throws SQLException {
+        makeHelper(Float.class)
+        .setColumns(TntSqlType.REAL)
+        .setValues(FLOAT_VALS)
+        .testGetColumn();
+    }
+
+    @Test
+    public void testGetDoubleColumn() throws SQLException {
+        makeHelper(Double.class)
+        .setColumns(TntSqlType.FLOAT, TntSqlType.DOUBLE)
+        .setValues(DOUBLE_VALS)
+        .testGetColumn();
+    }
+
+    @Test
+    public void testGetStringColumn() throws SQLException {
+        makeHelper(String.class)
+        .setColumns(TntSqlType.CHAR, TntSqlType.VARCHAR, TntSqlType.TEXT)
+        .setValues(STRING_VALS)
+        .testGetColumn();
+    }
+
+    @Test
+    public void testGetByteArrayColumn() throws SQLException {
+        makeHelper(byte[].class)
+        .setColumns(TntSqlType.BLOB)
+        .setValues(BINARY_VALS)
+        .testGetColumn();
     }
 }

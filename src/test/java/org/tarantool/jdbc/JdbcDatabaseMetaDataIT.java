@@ -46,10 +46,10 @@ public class JdbcDatabaseMetaDataIT extends AbstractJdbcIT {
         assertEquals("TEST", rs.getString("TABLE_NAME"));
 
         assertTrue(rs.next());
-        assertEquals("TEST_TYPES", rs.getString("TABLE_NAME"));
+        assertEquals("TEST_COMPOUND", rs.getString("TABLE_NAME"));
 
         assertTrue(rs.next());
-        assertEquals("TEST_COMPOUND", rs.getString("TABLE_NAME"));
+        assertEquals("TEST_TYPES", rs.getString("TABLE_NAME"));
 
         assertFalse(rs.next());
 
