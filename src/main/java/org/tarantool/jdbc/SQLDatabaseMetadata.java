@@ -21,7 +21,6 @@ public class SQLDatabaseMetadata implements DatabaseMetaData {
     protected static final int _VSPACE = 281;
     protected static final int _VINDEX = 289;
     protected static final int SPACES_MAX = 65535;
-    public static final int FLAGS_IDX = 5;
     public static final int FORMAT_IDX = 6;
     public static final int NAME_IDX = 2;
     public static final int INDEX_FORMAT_IDX = 5;
@@ -682,15 +681,20 @@ public class SQLDatabaseMetadata implements DatabaseMetaData {
             List<List<Object>> spaces = (List<List<Object>>) connection.nativeSelect(_VSPACE, 0, Arrays.asList(), 0, SPACES_MAX, 0);
             List<List<Object>> rows = new ArrayList<List<Object>>();
             for (List<Object> space : spaces) {
-                String name = (String) space.get(NAME_IDX);
-                Map flags = (Map) space.get(FLAGS_IDX);
-                if (flags != null && flags.containsKey("sql") && like(name, parts)) {
-                    rows.add(Arrays.asList(name, "TABLE", flags.get("sql")));
+                String tableName = (String) space.get(NAME_IDX);
+                List<Map<String, Object>> format = (List<Map<String, Object>>) space.get(FORMAT_IDX);
+                /*
+                 * Skip Tarantool system spaces (started with underscore).
+                 * Skip spaces that don't have format. Tarantool/SQL does not support such spaces.
+                 */
+                if (!tableName.startsWith("_") && format.size() > 0 && like(tableName, parts)) {
+                    rows.add(Arrays.asList((Object) tableName, (Object) "TABLE"));
                 }
             }
-            return new SQLNullResultSet(JDBCBridge.mock(Arrays.asList("TABLE_NAME", "TABLE_TYPE", "REMARKS",
+            return new SQLNullResultSet(JDBCBridge.mock(Arrays.asList("TABLE_NAME", "TABLE_TYPE",
                     //nulls
-                    "TABLE_CAT", "TABLE_SCHEM", "TABLE_TYPE", "TYPE_CAT", "TYPE_SCHEM", "TYPE_NAME", "SELF_REFERENCING_COL_NAME", "REF_GENERATION"), rows));
+                    "REMARKS", "TABLE_CAT", "TABLE_SCHEM", "TABLE_TYPE", "TYPE_CAT", "TYPE_SCHEM",
+                    "TYPE_NAME", "SELF_REFERENCING_COL_NAME", "REF_GENERATION"), rows));
         } catch (Exception e) {
             throw new SQLException("Failed to retrieve table(s) description: " +
                 "tableNamePattern=\"" + tableNamePattern + "\".", e);
@@ -726,9 +730,12 @@ public class SQLDatabaseMetadata implements DatabaseMetaData {
             List<List<Object>> rows = new ArrayList<List<Object>>();
             for (List<Object> space : spaces) {
                 String tableName = (String) space.get(NAME_IDX);
-                Map flags = (Map) space.get(FLAGS_IDX);
-                if (flags != null && flags.containsKey("sql") && like(tableName, tableParts)) {
-                    List<Map<String, Object>> format = (List<Map<String, Object>>) space.get(FORMAT_IDX);
+                List<Map<String, Object>> format = (List<Map<String, Object>>) space.get(FORMAT_IDX);
+                /*
+                 * Skip Tarantool system spaces (started with underscore).
+                 * Skip spaces that don't have format. Tarantool/SQL does not support such spaces.
+                 */
+                if (!tableName.startsWith("_") && format.size() > 0 && like(tableName, tableParts)) {
                     for (int columnIdx = 1; columnIdx <= format.size(); columnIdx++) {
                         Map<String, Object> f = format.get(columnIdx - 1);
                         String columnName = (String) f.get("name");
