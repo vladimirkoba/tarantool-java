@@ -362,10 +362,9 @@ public abstract class AbstractTarantoolOpsIT extends AbstractTarantoolConnectorI
         ex = assertThrows(TarantoolException.class, new Executable() {
             @Override
             public void execute() throws Throwable {
-                getOps().insert(SPACE_ID, Collections.singletonList("one"));
+                getOps().insert(SPACE_ID, Collections.singletonList(101));
             }
         });
-        assertEquals("Tuple field count 1 is less than required by space format or defined indexes " +
-            "(expected at least 2)", ex.getMessage());
+        assertEquals("Tuple field 2 required by space format is missing", ex.getMessage());
     }
 }
