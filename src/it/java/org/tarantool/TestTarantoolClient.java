@@ -1,5 +1,7 @@
 package org.tarantool;
 
+import org.tarantool.protocol.TarantoolPacket;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -15,7 +17,6 @@ import java.util.concurrent.TimeUnit;
 
 
 public class TestTarantoolClient {
-
     public static final int TESTER_SPACE_ID = 513;
 
     /*
@@ -81,8 +82,9 @@ public class TestTarantoolClient {
         }
 
         @Override
-        protected void complete(long code, CompletableFuture<?> q) {
-            super.complete(code, q);
+        protected void complete(TarantoolPacket packet, CompletableFuture<?> q) {
+            super.complete(packet, q);
+            long code = packet.getCode();
             if (code != 0) {
                 System.out.println(code);
             }
