@@ -22,7 +22,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
 
 
@@ -70,10 +69,12 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
         @Override
         public void run() {
             while (!Thread.currentThread().isInterrupted()) {
-                if (state.compareAndSet(StateHelper.RECONNECT, 0)) {
-                    reconnect(0, thumbstone);
+                reconnect(0, thumbstone);
+                try {
+                    state.awaitReconnection();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
-                LockSupport.park(state);
             }
         }
     });
@@ -139,16 +140,13 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
     protected void connect(final SocketChannel channel) throws Exception {
         try {
             TarantoolGreeting greeting = ProtoUtils.connect(channel,
-                config.username, config.password);
+                    config.username, config.password);
             this.serverVersion = greeting.getServerVersion();
         } catch (IOException e) {
-            try {
-                channel.close();
-            } catch (IOException ignored) {
-            }
-
+            closeChannel(channel);
             throw new CommunicationException("Couldn't connect to tarantool", e);
         }
+
         channel.configureBlocking(false);
         this.channel = channel;
         this.readChannel = new ReadableViaSelectorChannel(channel);
@@ -165,6 +163,7 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
 
     protected void startThreads(String threadName) throws InterruptedException {
         final CountDownLatch init = new CountDownLatch(2);
+        final AtomicInteger generationSync = new AtomicInteger(2);
         reader = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -174,8 +173,11 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
                         readThread();
                     } finally {
                         state.release(StateHelper.READING);
-                        if (state.compareAndSet(0, StateHelper.RECONNECT))
-                            LockSupport.unpark(connector);
+                        // avoid a case when this thread falls asleep here
+                        // after READING flag released and then can pollute the state
+                        if (generationSync.decrementAndGet() == 0) {
+                            state.trySignalForReconnection();
+                        }
                     }
                 }
             }
@@ -189,12 +191,22 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
                         writeThread();
                     } finally {
                         state.release(StateHelper.WRITING);
-                        if (state.compareAndSet(0, StateHelper.RECONNECT))
-                            LockSupport.unpark(connector);
+                        // avoid a case when this thread falls asleep here
+                        // after WRITING flag released and then can pollute the state
+                        if (generationSync.decrementAndGet() == 0) {
+                            state.trySignalForReconnection();
+                        }
                     }
                 }
             }
         });
+
+        // reconnection preparation is done
+        // before reconnection the state will be released
+        // reader/writer threads have been replaced by new ones
+        // it's required to be sure that old r/w threads see correct
+        // client's r/w references
+        state.release(StateHelper.RECONNECT);
 
         configureThreads(threadName);
         reader.start();
@@ -337,25 +349,21 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
     }
 
     protected void readThread() {
-        try {
-            while (!Thread.currentThread().isInterrupted()) {
-                try {
-                    TarantoolPacket packet = ProtoUtils.readPacket(readChannel);
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                TarantoolPacket packet = ProtoUtils.readPacket(readChannel);
 
-                    Map<Integer, Object> headers = packet.getHeaders();
+                Map<Integer, Object> headers = packet.getHeaders();
 
-                    Long syncId = (Long) headers.get(Key.SYNC.getId());
-                    TarantoolOp<?> future = futures.remove(syncId);
-                    stats.received++;
-                    wait.decrementAndGet();
-                    complete(packet, future);
-                } catch (Exception e) {
-                    die("Cant read answer", e);
-                    return;
-                }
+                Long syncId = (Long) headers.get(Key.SYNC.getId());
+                TarantoolOp<?> future = futures.remove(syncId);
+                stats.received++;
+                wait.decrementAndGet();
+                complete(packet, future);
+            } catch (Exception e) {
+                die("Cant read answer", e);
+                return;
             }
-        } catch (Exception e) {
-            die("Cant init thread", e);
         }
     }
 
@@ -498,7 +506,7 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
 
     @Override
     public TarantoolClientOps<Integer, List<?>, Object, Future<List<?>>> asyncOps() {
-        return (TarantoolClientOps)this;
+        return (TarantoolClientOps) this;
     }
 
     @Override
@@ -514,7 +522,7 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
 
     @Override
     public TarantoolSQLOps<Object, Long, List<Map<String, Object>>> sqlSyncOps() {
-        return new TarantoolSQLOps<Object, Long, List<Map<String,Object>>>() {
+        return new TarantoolSQLOps<Object, Long, List<Map<String, Object>>>() {
 
             @Override
             public Long update(String sql, Object... bind) {
@@ -530,7 +538,7 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
 
     @Override
     public TarantoolSQLOps<Object, Future<Long>, Future<List<Map<String, Object>>>> sqlAsyncOps() {
-        return new TarantoolSQLOps<Object, Future<Long>, Future<List<Map<String,Object>>>>() {
+        return new TarantoolSQLOps<Object, Future<Long>, Future<List<Map<String, Object>>>>() {
             @Override
             public Future<Long> update(String sql, Object... bind) {
                 return (Future<Long>) exec(Code.EXECUTE, Key.SQL_TEXT, sql, Key.SQL_BIND, bind);
@@ -618,6 +626,7 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
      * Manages state changes.
      */
     protected final class StateHelper {
+        static final int UNINITIALIZED = 0;
         static final int READING = 1;
         static final int WRITING = 2;
         static final int ALIVE = READING | WRITING;
@@ -627,9 +636,21 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
         private final AtomicInteger state;
 
         private final AtomicReference<CountDownLatch> nextAliveLatch =
-            new AtomicReference<CountDownLatch>(new CountDownLatch(1));
+                new AtomicReference<>(new CountDownLatch(1));
 
         private final CountDownLatch closedLatch = new CountDownLatch(1);
+
+        /**
+         * The condition variable to signal a reconnection is needed from reader /
+         * writer threads and waiting for that signal from the reconnection thread.
+         *
+         * The lock variable to access this condition.
+         *
+         * @see #awaitReconnection()
+         * @see #trySignalForReconnection()
+         */
+        protected final ReentrantLock connectorLock = new ReentrantLock();
+        protected final Condition reconnectRequired = connectorLock.newCondition();
 
         protected StateHelper(int state) {
             this.state = new AtomicInteger(state);
@@ -639,35 +660,60 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
             return state.get();
         }
 
+        /**
+         * Set CLOSED state, drop RECONNECT state.
+         */
         protected boolean close() {
-            for (;;) {
+            for (; ; ) {
                 int st = getState();
+
+                /* CLOSED is the terminal state. */
                 if ((st & CLOSED) == CLOSED)
                     return false;
+
+                /*  Drop RECONNECT, set CLOSED. */
                 if (compareAndSet(st, (st & ~RECONNECT) | CLOSED))
                     return true;
             }
         }
 
+        /**
+         * Move from a current state to a give one.
+         *
+         * Some moves are forbidden.
+         */
         protected boolean acquire(int mask) {
-            for (;;) {
-                int st = getState();
-                if ((st & CLOSED) == CLOSED)
+            for (; ; ) {
+                int currentState = getState();
+
+                /* CLOSED is the terminal state. */
+                if ((currentState & CLOSED) == CLOSED) {
                     return false;
+                }
 
-                if ((st & mask) != 0)
+                /* Don't move to READING, WRITING or ALIVE from RECONNECT. */
+                if ((currentState & RECONNECT) > mask) {
+                    return false;
+                }
+
+                /* Cannot move from a state to the same state. */
+                if ((currentState & mask) != 0) {
                     throw new IllegalStateException("State is already " + mask);
+                }
 
-                if (compareAndSet(st, st | mask))
+                /* Set acquired state. */
+                if (compareAndSet(currentState, currentState | mask)) {
                     return true;
+                }
             }
         }
 
         protected void release(int mask) {
-            for (;;) {
+            for (; ; ) {
                 int st = getState();
-                if (compareAndSet(st, st & ~mask))
+                if (compareAndSet(st, st & ~mask)) {
                     return;
+                }
             }
         }
 
@@ -686,10 +732,18 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
             return true;
         }
 
+        /**
+         * Reconnection uses another way to await state via receiving a signal
+         * instead of latches.
+         */
         protected void awaitState(int state) throws InterruptedException {
-            CountDownLatch latch = getStateLatch(state);
-            if (latch != null) {
-                latch.await();
+            if (state == RECONNECT) {
+                awaitReconnection();
+            } else {
+                CountDownLatch latch = getStateLatch(state);
+                if (latch != null) {
+                    latch.await();
+                }
             }
         }
 
@@ -709,9 +763,41 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
                 CountDownLatch latch = nextAliveLatch.get();
                 /* It may happen so that an error is detected but the state is still alive.
                  Wait for the 'next' alive state in such cases. */
-                return  (getState() == ALIVE && thumbstone == null) ? null : latch;
+                return (getState() == ALIVE && thumbstone == null) ? null : latch;
             }
             return null;
+        }
+
+        /**
+         * Blocks until a reconnection signal will be received.
+         *
+         * @see #trySignalForReconnection()
+         */
+        private void awaitReconnection() throws InterruptedException {
+            connectorLock.lock();
+            try {
+                while (getState() != StateHelper.RECONNECT) {
+                    reconnectRequired.await();
+                }
+            } finally {
+                connectorLock.unlock();
+            }
+        }
+
+        /**
+         * Signals to the connector that reconnection process can be performed.
+         *
+         * @see #awaitReconnection()
+         */
+        private void trySignalForReconnection() {
+            if (compareAndSet(StateHelper.UNINITIALIZED, StateHelper.RECONNECT)) {
+                connectorLock.lock();
+                try {
+                    reconnectRequired.signal();
+                } finally {
+                    connectorLock.unlock();
+                }
+            }
         }
     }
 
