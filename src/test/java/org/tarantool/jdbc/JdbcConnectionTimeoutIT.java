@@ -3,9 +3,12 @@ package org.tarantool.jdbc;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.tarantool.TestAssumptions.assumeMinimalServerVersion;
 import static org.tarantool.TestUtils.makeInstanceEnv;
 
+import org.tarantool.ServerVersion;
 import org.tarantool.TarantoolClientConfig;
+import org.tarantool.TarantoolConsole;
 import org.tarantool.TarantoolControl;
 import org.tarantool.protocol.TarantoolPacket;
 
@@ -25,6 +28,7 @@ import java.util.Properties;
 public class JdbcConnectionTimeoutIT {
 
     protected static final String LUA_FILE = "jdk-testing.lua";
+    private static final String HOST = "localhost";
     protected static final int LISTEN = 3301;
     protected static final int ADMIN = 3313;
     private static final String INSTANCE_NAME = "jdk-testing";
@@ -47,6 +51,7 @@ public class JdbcConnectionTimeoutIT {
 
     @BeforeEach
     void setUp() throws SQLException {
+        assumeMinimalServerVersion(TarantoolConsole.open(HOST, ADMIN), ServerVersion.V_2_1);
         connection = new SQLConnection("", new Properties()) {
             @Override
             protected SQLTarantoolClientImpl makeSqlClient(String address, TarantoolClientConfig config) {
@@ -66,7 +71,9 @@ public class JdbcConnectionTimeoutIT {
 
     @AfterEach
     void tearDown() throws SQLException {
-        connection.close();
+        if (connection != null) {
+            connection.close();
+        }
     }
 
     @Test

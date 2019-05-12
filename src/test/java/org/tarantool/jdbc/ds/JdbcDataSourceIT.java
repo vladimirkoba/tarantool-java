@@ -7,12 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.tarantool.TestAssumptions.assumeMinimalServerVersion;
 import static org.tarantool.TestUtils.makeInstanceEnv;
 
+import org.tarantool.ServerVersion;
+import org.tarantool.TarantoolConsole;
 import org.tarantool.TarantoolControl;
 import org.tarantool.jdbc.SQLProperty;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.ThrowingSupplier;
@@ -27,23 +31,28 @@ import javax.sql.DataSource;
 class JdbcDataSourceIT {
 
     private static final String LUA_FILE = "jdk-testing.lua";
+    private static final String HOST = "localhost";
     private static final int LISTEN = 3301;
     private static final int ADMIN = 3313;
     private static final String INSTANCE_NAME = "data-source-testing";
 
     private SQLDataSource dataSource;
 
-    @BeforeEach
-    void setUp() {
+    @BeforeAll
+    static void setUpEnv() {
         TarantoolControl control = new TarantoolControl();
         control.createInstance(INSTANCE_NAME, LUA_FILE, makeInstanceEnv(LISTEN, ADMIN));
         control.start(INSTANCE_NAME);
+    }
 
+    @BeforeEach
+    void setUp() {
+        assumeMinimalServerVersion(TarantoolConsole.open(HOST, ADMIN), ServerVersion.V_2_1);
         dataSource = new SQLDataSource();
     }
 
-    @AfterEach
-    void tearDown() {
+    @AfterAll
+    static void tearDownEnv() {
         TarantoolControl control = new TarantoolControl();
         control.stop(INSTANCE_NAME);
     }

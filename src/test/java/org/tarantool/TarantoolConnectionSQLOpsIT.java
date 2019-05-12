@@ -22,7 +22,9 @@ public class TarantoolConnectionSQLOpsIT extends AbstractTarantoolSQLOpsIT {
 
     @AfterEach
     public void tearDown() {
-        connection.close();
+        if (connection != null) {
+            connection.close();
+        }
     }
 
     @Override
