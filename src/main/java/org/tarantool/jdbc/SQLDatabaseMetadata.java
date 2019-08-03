@@ -6,6 +6,7 @@ import org.tarantool.SqlProtoUtils;
 import org.tarantool.Version;
 import org.tarantool.jdbc.type.TarantoolSqlType;
 import org.tarantool.util.ServerVersion;
+import org.tarantool.util.StringUtils;
 import org.tarantool.util.TupleTwo;
 
 import java.sql.Connection;
@@ -179,17 +180,17 @@ public class SQLDatabaseMetadata implements TarantoolDatabaseMetaData {
 
     @Override
     public String getNumericFunctions() throws SQLException {
-        return "";
+        return StringUtils.toCsvList(EscapedFunctions.NumericFunction.values());
     }
 
     @Override
     public String getStringFunctions() throws SQLException {
-        return "";
+        return StringUtils.toCsvList(EscapedFunctions.StringFunction.values());
     }
 
     @Override
     public String getSystemFunctions() throws SQLException {
-        return "";
+        return StringUtils.toCsvList(EscapedFunctions.SystemFunction.values());
     }
 
     @Override
@@ -274,7 +275,7 @@ public class SQLDatabaseMetadata implements TarantoolDatabaseMetaData {
 
     @Override
     public boolean supportsLikeEscapeClause() throws SQLException {
-        return false;
+        return true;
     }
 
     @Override
