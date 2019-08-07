@@ -15,6 +15,7 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.channels.ReadableByteChannel;
@@ -180,7 +181,7 @@ public abstract class ProtoUtils {
         assertCorrectWelcome(firstLine, channel.getRemoteAddress());
         final String serverVersion = firstLine.substring(WELCOME.length());
 
-        welcomeBytes.clear();
+        ((Buffer)welcomeBytes).clear();
         channel.read(welcomeBytes);
         String salt = new String(welcomeBytes.array());
 
