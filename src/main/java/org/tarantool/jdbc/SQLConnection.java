@@ -27,6 +27,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLNonTransientConnectionException;
 import java.sql.SQLNonTransientException;
+import java.sql.SQLPermission;
 import java.sql.SQLWarning;
 import java.sql.SQLXML;
 import java.sql.Savepoint;
@@ -42,6 +43,7 @@ import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
@@ -51,6 +53,9 @@ import java.util.function.Function;
  */
 public class SQLConnection implements TarantoolConnection {
 
+    private static final SQLPermission CALL_ABORT_PERMISSION = new SQLPermission("callAbort");
+    private static final SQLPermission SET_NETWORK_TIMEOUT_PERMISSION = new SQLPermission("setNetworkTimeout");
+
     private static final int UNSET_HOLDABILITY = 0;
     private static final String PING_QUERY = "SELECT 1";
 
@@ -59,6 +64,8 @@ public class SQLConnection implements TarantoolConnection {
     private final Properties properties;
     private DatabaseMetaData cachedMetadata;
     private int resultSetHoldability = UNSET_HOLDABILITY;
+
+    private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
     public SQLConnection(String url, Properties properties) throws SQLException {
         this.url = url;
@@ -205,6 +212,12 @@ public class SQLConnection implements TarantoolConnection {
 
     @Override
     public void close() throws SQLException {
+        if (isClosed.compareAndSet(false, true)) {
+            closeInternal();
+        }
+    }
+
+    private void closeInternal() {
         client.close();
     }
 
@@ -234,7 +247,7 @@ public class SQLConnection implements TarantoolConnection {
 
     @Override
     public boolean isClosed() throws SQLException {
-        return client.isClosed();
+        return isClosed.get() || client.isClosed();
     }
 
     @Override
@@ -417,6 +430,7 @@ public class SQLConnection implements TarantoolConnection {
         if (milliseconds < 0) {
             throw new SQLException("Network timeout cannot be negative.");
         }
+        SET_NETWORK_TIMEOUT_PERMISSION.checkGuard(this);
         client.setOperationTimeout(milliseconds);
     }
 
@@ -515,7 +529,16 @@ public class SQLConnection implements TarantoolConnection {
         if (isClosed()) {
             return;
         }
-        throw new SQLFeatureNotSupportedException();
+        if (executor == null) {
+            throw new SQLNonTransientException(
+                "Executor cannot be null",
+                SQLStates.INVALID_PARAMETER_VALUE.getSqlState()
+            );
+        }
+        CALL_ABORT_PERMISSION.checkGuard(this);
+        if (isClosed.compareAndSet(false, true)) {
+            executor.execute(this::closeInternal);
+        }
     }
 
     @Override
