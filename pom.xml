@@ -3,7 +3,7 @@
 
     <groupId>org.tarantool</groupId>
     <artifactId>connector</artifactId>
-    <version>1.9.4-SNAPSHOT</version>
+    <version>1.9.4</version>
     <packaging>jar</packaging>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
