@@ -39,6 +39,7 @@ import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.JDBCType;
+import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -947,6 +948,24 @@ public class JdbcPreparedStatementIT {
         }
         int preparedCount = testHelper.evaluate("box.info:sql().cache.stmt_count");
         assertEquals(0, preparedCount);
+    }
+
+    @Test
+    public void testPreparedParameterMetaData() throws SQLException {
+        assumeMinimalServerVersion(testHelper.getInstanceVersion(), ServerVersion.V_2_3);
+        prep = conn.prepareStatement("SELECT val FROM test WHERE id = ? AND val = ?");
+        ParameterMetaData parameterMetaData = prep.getParameterMetaData();
+        assertNotNull(parameterMetaData);
+        assertEquals(2, parameterMetaData.getParameterCount());
+    }
+
+    @Test
+    public void testEmptyParameterMetaData() throws SQLException {
+        assumeMinimalServerVersion(testHelper.getInstanceVersion(), ServerVersion.V_2_3);
+        prep = conn.prepareStatement("SELECT * FROM test");
+        ParameterMetaData parameterMetaData = prep.getParameterMetaData();
+        assertNotNull(parameterMetaData);
+        assertEquals(0, parameterMetaData.getParameterCount());
     }
 
     private List<?> consoleSelect(Object key) {
