@@ -554,7 +554,7 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
                 } catch (TarantoolSchemaException cause) {
                     fail(target, cause);
                 }
-            } else if (operation.getCode() == Code.EXECUTE) {
+            } else if (operation.isSqlRelated()) {
                 completeSql(operation, packet);
             } else {
                 ((CompletableFuture) result).complete(packet.getData());
