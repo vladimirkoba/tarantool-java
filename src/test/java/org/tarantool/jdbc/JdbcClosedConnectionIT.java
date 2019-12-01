@@ -94,7 +94,7 @@ public class JdbcClosedConnectionIT {
 
     @Test
     public void testPreparedStatement() throws SQLException {
-        PreparedStatement preparedStatement = connection.prepareStatement("TEST");
+        PreparedStatement preparedStatement = connection.prepareStatement("SELECT 1");
         connection.close();
 
         int i = 0;

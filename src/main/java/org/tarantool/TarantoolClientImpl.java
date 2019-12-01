@@ -763,7 +763,7 @@ public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements Tar
         return unsafeSchemaOps;
     }
 
-    protected TarantoolRequest makeSqlRequest(String sql, List<Object> bind) {
+    private TarantoolRequest makeSqlRequest(String sql, List<Object> bind) {
         return new TarantoolRequest(
             Code.EXECUTE,
             TarantoolRequestArgumentFactory.value(Key.SQL_TEXT),
