@@ -14,10 +14,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.tarantool.TestAssumptions.assumeMinimalServerVersion;
 
-import org.tarantool.ServerVersion;
 import org.tarantool.TarantoolTestHelper;
 import org.tarantool.TestUtils;
 import org.tarantool.util.SQLStates;
+import org.tarantool.util.ServerVersion;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
