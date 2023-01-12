@@ -3,7 +3,17 @@
 align="right">
 </a>
 
-# Java connector for Tarantool 1.7.4+
+# Deprecation note
+
+This connector is not in the active development and de facto deprecated.
+Consider using the modern alternative:
+[cartridge-java](https://github.com/tarantool/cartridge-java). It is based on
+Netty framework and supports single node/cluster queries.
+
+You may be still interesting in tarantool-java connector if you're using
+Tarantool via JDBC.
+
+# Java connector for Tarantool
 
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.tarantool/connector/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.tarantool/connector)
 [![Build Status](https://travis-ci.org/tarantool/tarantool-java.svg?branch=master)](https://travis-ci.org/tarantool/tarantool-java)
