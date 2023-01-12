@@ -6,12 +6,15 @@ align="right">
 # Deprecation note
 
 This connector is not in the active development and de facto deprecated.
-Consider using the modern alternative:
-[cartridge-java](https://github.com/tarantool/cartridge-java). It is based on
-Netty framework and supports single node/cluster queries.
+Consider using the modern alternatives: [cartridge-java][cartridge-java] and
+[cartridge-springdata][cartridge-springdata]. It is based on Netty framework
+and supports single node/cluster queries.
 
 You may be still interesting in tarantool-java connector if you're using
 Tarantool via JDBC.
+
+[cartridge-java]: https://github.com/tarantool/cartridge-java
+[cartridge-springdata]: https://github.com/tarantool/cartridge-springdata
 
 # Java connector for Tarantool
 
