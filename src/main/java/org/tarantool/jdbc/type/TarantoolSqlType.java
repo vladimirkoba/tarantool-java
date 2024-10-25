@@ -53,9 +53,9 @@ public enum TarantoolSqlType {
     }
 
     public static TarantoolSqlType getDefaultSqlType(TarantoolType type) {
-        return defaultSqlTypeMapping.getOrDefault(type, TarantoolSqlType.UNKNOWN);
-    }
-
+        return defaultSqlTypeMapping.getOrDefault(type, TarantoolSqlType.TEXT);
+    } //переписать в запросе сгенерированный лайк на =
+    //дОбавить кавычки для сортировки для полей сортировки
     /**
      * Corresponding raw {@link TarantoolType}.
      */

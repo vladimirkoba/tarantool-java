@@ -1,5 +1,9 @@
 package org.tarantool;
 
+import static org.tarantool.utils.LocalLogger.log;
+
+import java.util.Arrays;
+import java.util.List;
 import org.tarantool.cluster.TarantoolClusterDiscoverer;
 import org.tarantool.cluster.TarantoolClusterStoredFunctionDiscoverer;
 import org.tarantool.logging.Logger;
@@ -53,6 +57,16 @@ public class TarantoolClusterClient extends TarantoolClientImpl {
      * @param addresses Array of addresses in the form of host[:port].
      */
     public TarantoolClusterClient(TarantoolClusterClientConfig config, String... addresses) {
+        this(config, makeClusterSocketProvider(Arrays.asList(addresses)));
+    }
+
+    /**
+     * Constructs a new cluster client.
+     *
+     * @param config    Configuration.
+     * @param addresses List of addresses in the form of host[:port].
+     */
+    public TarantoolClusterClient(TarantoolClusterClientConfig config, List<String> addresses) {
         this(config, makeClusterSocketProvider(addresses));
     }
 
@@ -240,7 +254,8 @@ public class TarantoolClusterClient extends TarantoolClientImpl {
         }
     }
 
-    private static RoundRobinSocketProviderImpl makeClusterSocketProvider(String[] addresses) {
+    private static RoundRobinSocketProviderImpl makeClusterSocketProvider(List<String> addresses) {
+        log("Making cluster socket provider");
         return new RoundRobinSocketProviderImpl(addresses);
     }
 
