@@ -11,13 +11,5 @@ public class LocalLogger {
    * @param message
    */
   public static void log(String message) {
-    String timeStamp = java.time.LocalDateTime.now().toString();
-    String logMessage = timeStamp + " - " + message;
-    try (BufferedWriter writer = new BufferedWriter(new FileWriter("C:\\vtb\\driverLog.txt", true))) {
-      writer.write(logMessage);
-      writer.newLine();
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
   }
 }
