@@ -1,23 +1,5 @@
 package org.tarantool;
 
-import static org.tarantool.utils.LocalLogger.log;
-
-import io.tarantool.driver.api.TarantoolClientFactory;
-import io.tarantool.driver.api.TarantoolResult;
-import io.tarantool.driver.api.tuple.TarantoolTuple;
-import org.tarantool.logging.Logger;
-import org.tarantool.logging.LoggerFactory;
-import org.tarantool.protocol.ProtoConstants;
-import org.tarantool.protocol.ProtoUtils;
-import org.tarantool.protocol.ReadableViaSelectorChannel;
-import org.tarantool.protocol.TarantoolGreeting;
-import org.tarantool.protocol.TarantoolPacket;
-import org.tarantool.schema.TarantoolMetaSpacesCache;
-import org.tarantool.schema.TarantoolSchemaException;
-import org.tarantool.schema.TarantoolSchemaMeta;
-import org.tarantool.util.StringUtils;
-import org.tarantool.util.TupleTwo;
-
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -44,6 +26,18 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.StampedLock;
+import org.tarantool.logging.Logger;
+import org.tarantool.logging.LoggerFactory;
+import org.tarantool.protocol.ProtoConstants;
+import org.tarantool.protocol.ProtoUtils;
+import org.tarantool.protocol.ReadableViaSelectorChannel;
+import org.tarantool.protocol.TarantoolGreeting;
+import org.tarantool.protocol.TarantoolPacket;
+import org.tarantool.schema.TarantoolMetaSpacesCache;
+import org.tarantool.schema.TarantoolSchemaException;
+import org.tarantool.schema.TarantoolSchemaMeta;
+import org.tarantool.util.StringUtils;
+import org.tarantool.util.TupleTwo;
 
 public class TarantoolClientImpl extends TarantoolBase<Future<?>> implements TarantoolClient {
 

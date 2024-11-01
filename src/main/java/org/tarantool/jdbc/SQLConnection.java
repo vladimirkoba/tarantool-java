@@ -73,9 +73,8 @@ public class SQLConnection implements TarantoolConnection {
   /**
    * Creates a new connection to Tarantool server.
    *
-   * @param originUrl raw URL string that was used to parse connection parameters
+   * @param originUrl  raw URL string that was used to parse connection parameters
    * @param properties extra parameters to configure a connection
-   *
    * @deprecated use {@link #SQLConnection(String, List, Properties)} instead
    */
   @Deprecated
@@ -89,7 +88,6 @@ public class SQLConnection implements TarantoolConnection {
    * @param originUrl  raw URL string that was used to parse connection parameters
    * @param nodes      initial set of Tarantool nodes
    * @param properties extra parameters to configure a connection
-   *
    * @throws SQLException if any errors occur during the connecting
    */
   public SQLConnection(String originUrl,
@@ -133,6 +131,7 @@ public class SQLConnection implements TarantoolConnection {
 
     return clientConfig;
   }
+
   @Override
   public void commit() throws SQLException {
     checkNotClosed();
@@ -770,12 +769,13 @@ public class SQLConnection implements TarantoolConnection {
     final SQLRawOps sqlRawOps = new SQLRawOps() {
       @Override
       public SQLResultHolder execute(SQLQueryHolder query) {
-        new UuidReplacer(schemaMeta).updateUuidToProperType(query);
+        query = new UuidReplacer(schemaMeta).updateUuidToProperType(query);
         return (SQLResultHolder) syncGet(executeQuery(query));
       }
 
       @Override
       public SQLResultHolder execute(long timeoutMillis, SQLQueryHolder query) {
+        query = new UuidReplacer(schemaMeta).updateUuidToProperType(query);
         return (SQLResultHolder) syncGet(executeQuery(query, timeoutMillis));
       }
 
