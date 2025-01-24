@@ -1,14 +1,9 @@
 package org.tarantool.jdbc;
 
-import static org.tarantool.utils.QuoteWrapper.addQuotesForSpaces;
 import static org.tarantool.utils.LocalLogger.log;
+import static org.tarantool.utils.QuoteWrapper.addQuotesForSpaces;
 
 import java.math.BigDecimal;
-import org.tarantool.SqlProtoUtils;
-import org.tarantool.jdbc.type.TarantoolSqlType;
-import org.tarantool.util.JdbcConstants;
-import org.tarantool.util.SQLStates;
-
 import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -24,6 +19,10 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.tarantool.SqlProtoUtils;
+import org.tarantool.jdbc.type.TarantoolSqlType;
+import org.tarantool.util.JdbcConstants;
+import org.tarantool.util.SQLStates;
 import org.tarantool.utils.QuoteWrapper;
 
 /**

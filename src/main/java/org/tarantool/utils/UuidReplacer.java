@@ -3,6 +3,7 @@ package org.tarantool.utils;
 import static org.tarantool.utils.LocalLogger.log;
 import static org.tarantool.utils.SpaceNameExtractor.extractSpaceName;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +50,10 @@ public class UuidReplacer {
       }
       if (spaceTypeIsArray(field) && queryHasSpaceField(field, sqlParams)) {
         replaceStringArrayToProperArray(query, field, sqlParameterNameToPosition);
+        printChangedParameters(query);
+      }
+      if (spaceTypeIsDecimal(field) && queryHasSpaceField(field, sqlParams)) {
+        replaceStringDecimalToProperDouble(query, field, sqlParameterNameToPosition);
         printChangedParameters(query);
       }
     }
@@ -122,6 +127,22 @@ public class UuidReplacer {
     }
   }
 
+  private void replaceStringDecimalToProperDouble(SQLQueryHolder query, SpaceField field, Map<String, List<Integer>> sqlParameterNameToPosition) {
+    log("sqlParam = " + field.getName());
+    List<Integer> positions = sqlParameterNameToPosition.get(field.getName());
+    if (positions != null) {
+      for (Integer position : positions) {
+        Object potentialDecimal = query.getParams().get(position - 1);
+        log("potential decimal at position " + position + " = " + potentialDecimal);
+        if (potentialDecimal != null) {
+          Double decimalValue = Double.valueOf(potentialDecimal.toString());
+          log("converted decimal = " + decimalValue);
+          query.getParams().set(position - 1, decimalValue);
+        }
+      }
+    }
+  }
+
   private boolean queryHasSpaceField(SpaceField field, Set<String> sqlParams) {
     return sqlParams.contains(field.getName());
   }
@@ -133,6 +154,10 @@ public class UuidReplacer {
 
   private boolean spaceTypeIsUuid(SpaceField field) {
     return field.getType().equals("uuid");
+  }
+
+  private boolean spaceTypeIsDecimal(SpaceField field) {
+    return field.getType().equals("decimal");
   }
 
 }

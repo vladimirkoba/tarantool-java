@@ -4,14 +4,26 @@ import static org.tarantool.util.JdbcConstants.DatabaseMetadataTable;
 import static org.tarantool.util.JdbcConstants.DatabaseMetadataTable.INDEX_INFO;
 import static org.tarantool.utils.LocalLogger.log;
 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.RowIdLifetime;
+import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.tarantool.SqlProtoUtils;
 import org.tarantool.Version;
 import org.tarantool.jdbc.type.TarantoolSqlType;
 import org.tarantool.util.TupleTwo;
-
-import java.sql.*;
-import java.util.*;
-import java.util.stream.Collectors;
+import org.tarantool.utils.LocalLogger;
 
 public class SQLDatabaseMetadata implements DatabaseMetaData {
 
@@ -928,27 +940,24 @@ public class SQLDatabaseMetadata implements DatabaseMetaData {
   }
 
   private int mapToJdbcType(String typeName) {
+    LocalLogger.log("mapToJdbcType: " + typeName);
     switch (typeName) {
-      case "integer":
-        return Types.INTEGER;
+      case "decimal":
       case "double":
         return Types.DOUBLE;
+      case "integer":
+        return Types.INTEGER;
       case "float":
         return Types.FLOAT;
       case "bigint":
-        return Types.BIGINT;
       case "numeric":
-        return Types.BIGINT;
-      case "varchar":
-        return Types.VARCHAR;
-      case "text":
-        return Types.VARCHAR;
-      case "uuid":
-        return Types.VARCHAR;
       case "unsigned":
         return Types.BIGINT;
+      case "varchar":
+      case "text":
+      case "uuid":
+        return Types.VARCHAR;
       case "boolean":
-        return Types.BIT;
       case "bool":
         return Types.BIT;
     }

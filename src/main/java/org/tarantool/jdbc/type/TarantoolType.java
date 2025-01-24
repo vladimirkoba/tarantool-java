@@ -6,6 +6,7 @@ package org.tarantool.jdbc.type;
 public enum TarantoolType {
 
     UNKNOWN("unknown", false, false, 0, 0, 0),
+    DECIMAL("decimal", true, false, 30, 30, 12),
     BOOLEAN("boolean", false, false, 1, 0, 5),
     STRING("string", false, true, Integer.MAX_VALUE, 0, Integer.MAX_VALUE),
     // precision is 20 due to Tarantool integer type has range [-2^63-1..2^64-1]
