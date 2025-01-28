@@ -3,7 +3,6 @@ package org.tarantool.utils;
 import static org.tarantool.utils.LocalLogger.log;
 import static org.tarantool.utils.SpaceNameExtractor.extractSpaceName;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +53,12 @@ public class UuidReplacer {
       }
       if (spaceTypeIsDecimal(field) && queryHasSpaceField(field, sqlParams)) {
         replaceStringDecimalToProperDouble(query, field, sqlParameterNameToPosition);
+        printChangedParameters(query);
+      }
+
+      // Добавляем обработку булевых значений
+      if (spaceTypeIsBoolean(field) && queryHasSpaceField(field, sqlParams)) {
+        replaceStringBooleanToProperBoolean(query, field, sqlParameterNameToPosition);
         printChangedParameters(query);
       }
     }
@@ -160,4 +165,44 @@ public class UuidReplacer {
     return field.getType().equals("decimal");
   }
 
+
+  // Новый метод для преобразования строк в булевы значения
+// В методе replaceStringBooleanToProperBoolean добавляем проверки типов
+  private void replaceStringBooleanToProperBoolean(SQLQueryHolder query, SpaceField field,
+      Map<String, List<Integer>> sqlParameterNameToPosition) {
+    log("sqlParam = " + field.getName());
+    List<Integer> positions = sqlParameterNameToPosition.get(field.getName());
+    if (positions != null) {
+      for (Integer position : positions) {
+        Object potentialBoolean = query.getParams().get(position - 1);
+        log("potential boolean at position " + position + " = " + potentialBoolean);
+
+        if (potentialBoolean == null) {
+          continue; // Сохраняем null как есть
+        }
+
+        if (potentialBoolean instanceof Boolean) {
+          log("Parameter is already Boolean: " + potentialBoolean);
+          continue;
+        }
+
+        if (potentialBoolean instanceof String) {
+          Boolean booleanValue = Boolean.parseBoolean(((String) potentialBoolean).toLowerCase());
+          log("converted boolean = " + booleanValue);
+          query.getParams().set(position - 1, booleanValue);
+        } else {
+          log("Invalid boolean type: " + potentialBoolean.getClass().getName());
+          throw new IllegalArgumentException(
+              "Boolean parameter must be String or Boolean. Actual type: "
+                  + potentialBoolean.getClass().getName()
+          );
+        }
+      }
+    }
+  }
+
+  // Проверка типа поля на boolean
+  private boolean spaceTypeIsBoolean(SpaceField field) {
+    return "boolean".equalsIgnoreCase(field.getType());
+  }
 }

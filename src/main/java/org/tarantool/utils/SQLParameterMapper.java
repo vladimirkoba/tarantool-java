@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.Function;
@@ -17,6 +18,8 @@ import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.insert.Insert;
+import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.update.Update;
 
 /**
@@ -25,10 +28,10 @@ import net.sf.jsqlparser.statement.update.Update;
 public class SQLParameterMapper {
 
   /**
-   * Extracts parameters from an SQL query (INSERT, UPDATE, DELETE) and returns a Map where the key
+   * Extracts parameters from an SQL query (INSERT, UPDATE, DELETE, SELECT) and returns a Map where the key
    * is the parameter (column) name without quotes, and the value is a list of its positions.
    *
-   * @param sqlQuery SQL query of type INSERT, UPDATE, or DELETE
+   * @param sqlQuery SQL query of type INSERT, UPDATE, DELETE, or SELECT
    * @return Map<String, List<Integer>> with parameter names and their positions
    */
   public static Map<String, List<Integer>> mapParameters(String sqlQuery) {
@@ -46,8 +49,10 @@ public class SQLParameterMapper {
         handleUpdate((Update) statement, paramMap);
       } else if (statement instanceof Delete) {
         handleDelete((Delete) statement, paramMap);
+      } else if (statement instanceof Select) {
+        handleSelect((Select) statement, paramMap);
       } else {
-        throw new IllegalArgumentException("Unsupported SQL command. Only INSERT, UPDATE, DELETE are supported.");
+        throw new IllegalArgumentException("Unsupported SQL command. Only INSERT, UPDATE, DELETE, SELECT are supported.");
       }
     } catch (Exception e) {
       e.printStackTrace();
@@ -83,19 +88,16 @@ public class SQLParameterMapper {
 
         // Handle different expression types if necessary
         if (expr instanceof StringValue) {
-          String value = ((StringValue) expr).getValue();
-          // Handle empty strings if needed
+          // String literals are handled as parameters
         } else if (expr instanceof NullValue) {
-          // Handle NULL values if needed
+          // NULL values are handled as parameters
         } else if (expr instanceof Function) {
-          // Handle custom functions like array_create('1231')
-          Function function = (Function) expr;
-          // Additional processing can be added here if necessary
+          // Handle functions like array_create('1231')
+          // For now, treat them as parameters
         } else if (expr instanceof JdbcParameter) {
-          // Handle JDBC parameters (placeholders)
-          // Handle numeric and boolean values
+          // JDBC placeholders are already parameters
         } else {
-          // Handle other expression types if necessary
+          // Other expressions are treated as parameters
         }
 
         // Map the column to its parameter index
@@ -129,6 +131,7 @@ public class SQLParameterMapper {
       // Handle different expression types if necessary
       // Similar to handleInsert method
 
+      // Map the column to its parameter index
       paramMap.computeIfAbsent(columnName, k -> new ArrayList<>()).add(paramIndex++);
     }
 
@@ -154,6 +157,34 @@ public class SQLParameterMapper {
   }
 
   /**
+   * Handles SELECT statements and populates paramMap.
+   *
+   * @param select   Select object from JSqlParser
+   * @param paramMap Map to populate
+   */
+  private static void handleSelect(Select select, Map<String, List<Integer>> paramMap) {
+    if (select.getSelectBody() instanceof PlainSelect) {
+      PlainSelect plainSelect = (PlainSelect) select.getSelectBody();
+
+      // Handle WHERE
+      Expression where = plainSelect.getWhere();
+      if (where != null) {
+        int paramIndex = 1;
+        extractColumnsFromExpression(where, paramMap, paramIndex);
+      }
+
+      // (OPTIONALLY) Handle HAVING, JOIN conditions, etc. if needed
+      // Example for HAVING:
+            /*
+            Expression having = plainSelect.getHaving();
+            if (having != null) {
+                paramIndex = extractColumnsFromExpression(having, paramMap, paramIndex);
+            }
+            */
+    }
+  }
+
+  /**
    * Recursively extracts column names from the WHERE expression and maps them to their positions.
    *
    * @param expr       WHERE expression
@@ -170,21 +201,16 @@ public class SQLParameterMapper {
       boolean leftIsColumn = left instanceof Column;
       boolean rightIsColumn = right instanceof Column;
 
-      // Map columns to parameter positions
-      if (leftIsColumn && !rightIsColumn) {
+      // Only map the value side of the expression
+      if (leftIsColumn && !(right instanceof BinaryExpression)) {
         String columnName = stripQuotes(((Column) left).getColumnName());
         paramMap.computeIfAbsent(columnName, k -> new ArrayList<>()).add(paramIndex++);
-      } else if (rightIsColumn && !leftIsColumn) {
+      } else if (rightIsColumn && !(left instanceof BinaryExpression)) {
         String columnName = stripQuotes(((Column) right).getColumnName());
         paramMap.computeIfAbsent(columnName, k -> new ArrayList<>()).add(paramIndex++);
-      } else if (leftIsColumn && rightIsColumn) {
-        // Both are columns; map both
-        String leftColumnName = stripQuotes(((Column) left).getColumnName());
-        paramMap.computeIfAbsent(leftColumnName, k -> new ArrayList<>()).add(paramIndex++);
-        String rightColumnName = stripQuotes(((Column) right).getColumnName());
-        paramMap.computeIfAbsent(rightColumnName, k -> new ArrayList<>()).add(paramIndex++);
       }
 
+      // Recurse into left and right expressions
       paramIndex = extractColumnsFromExpression(left, paramMap, paramIndex);
       paramIndex = extractColumnsFromExpression(right, paramMap, paramIndex);
     } else if (expr instanceof Parenthesis) {
@@ -192,6 +218,8 @@ public class SQLParameterMapper {
       paramIndex = extractColumnsFromExpression(parenthesis.getExpression(), paramMap, paramIndex);
     } else if (expr instanceof Function) {
       // Handle function expressions if necessary
+      // For example, array_create('1231') - treat as a parameter
+      // You can extract parameters from function arguments if needed
     }
     // Handle other expression types if necessary
     return paramIndex;
