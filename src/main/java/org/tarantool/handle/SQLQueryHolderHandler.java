@@ -1,7 +1,8 @@
-package org.tarantool.utils;
+package org.tarantool.handle;
 
-import static org.tarantool.utils.LocalLogger.log;
-import static org.tarantool.utils.SpaceNameExtractor.extractSpaceName;
+import static org.tarantool.handle.SQLParameterMapper.mapParameters;
+import static org.tarantool.handle.SpaceNameExtractor.extractSpaceName;
+import static org.tarantool.logging.LocalLogger.log;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,26 +14,26 @@ import org.tarantool.schema.TarantoolSchemaMeta;
 import org.tarantool.schema.TarantoolSpaceMeta;
 import org.tarantool.schema.TarantoolSpaceMeta.SpaceField;
 
-public class UuidReplacer {
+public class SQLQueryHolderHandler {
 
-  private TarantoolSchemaMeta schemaMeta;
+  private final TarantoolSchemaMeta schemaMeta;
 
-  public UuidReplacer(TarantoolSchemaMeta schemaMeta) {
+  public SQLQueryHolderHandler(TarantoolSchemaMeta schemaMeta) {
     this.schemaMeta = schemaMeta;
   }
 
-  public SQLQueryHolder updateUuidToProperType(SQLQueryHolder query) {
+  public SQLQueryHolder handle(SQLQueryHolder query) {
     if (query.getParams().isEmpty()) {
       query = PreparedStatementConverter.convertSqlToPreparedStatementFormat(query.getQuery());
-      log("query after prepared statement modifier:" + query.getQuery());
+      log("query after prepared statement modifier: {0}", query.getQuery());
       log("\n");
-      log("params after prepared statement modifier:" + query.getParams());
+      log("params after prepared statement modifier: {0}", query.getParams());
     }
     String spaceName = extractSpaceName(query.getQuery());
-    Map<String, List<Integer>> sqlParameterNameToPosition = SQLParameterMapper.mapParameters(query.getQuery());
-    log("Sql parameter name to position map:" + sqlParameterNameToPosition);
+    Map<String, List<Integer>> sqlParameterNameToPosition = mapParameters(query.getQuery());
+    log("Sql parameter name to position map: {0}", sqlParameterNameToPosition);
     Set<String> sqlParams = sqlParameterNameToPosition.keySet();
-    log("Space name from table: " + spaceName);
+    log("Space name from table: {0}", spaceName);
     if (spaceName == null) {
       log("Space is null, maybe connection test query");
       return query;
@@ -40,7 +41,7 @@ public class UuidReplacer {
     TarantoolSpaceMeta space = schemaMeta.getSpace(spaceName);
     log("Space types");
     for (SpaceField field : space.getFormat()) {
-      log("Space field:" + field.getName() + " type:" + field.getType());
+      log("Space field: {0} type: {1}", field.getName(), field.getType());
     }
     for (SpaceField field : space.getFormat()) {
       if (spaceTypeIsUuid(field) && queryHasSpaceField(field, sqlParams)) {
@@ -55,8 +56,6 @@ public class UuidReplacer {
         replaceStringDecimalToProperDouble(query, field, sqlParameterNameToPosition);
         printChangedParameters(query);
       }
-
-      // Добавляем обработку булевых значений
       if (spaceTypeIsBoolean(field) && queryHasSpaceField(field, sqlParams)) {
         replaceStringBooleanToProperBoolean(query, field, sqlParameterNameToPosition);
         printChangedParameters(query);
@@ -65,7 +64,6 @@ public class UuidReplacer {
     return query;
   }
 
-
   private void printChangedParameters(SQLQueryHolder query) {
     log("Changed params:");
     for (Object param : query.getParams()) {
@@ -73,17 +71,17 @@ public class UuidReplacer {
         log("param is null");
         continue;
       }
-      log("param = " + param + " type = " + param.getClass());
+      log("param = {0} type = {1}", param, param.getClass());
     }
   }
 
   private void replaceStringArrayToProperArray(SQLQueryHolder query, SpaceField field, Map<String, List<Integer>> sqlParameterNameToPosition) {
-    log("sqlParam = " + field.getName());
+    log("sqlParam = {0}", field.getName());
     List<Integer> positions = sqlParameterNameToPosition.get(field.getName());
     if (positions != null) {
       for (Integer position : positions) {
         Object potentialArray = query.getParams().get(position - 1);
-        log("potential array at position " + position + " = " + potentialArray);
+        log("potential array at position {0} = {1}", position, potentialArray);
         if (potentialArray != null) {
           String arrayString = potentialArray.toString().trim();
           if (arrayString.equals("{}")) {
@@ -104,10 +102,10 @@ public class UuidReplacer {
                   array.add(element);
                 }
               }
-              log("converted array = " + array);
+              log("converted array = {0}", array);
               query.getParams().set(position - 1, array);
             } else {
-              log("Invalid array format: " + arrayString);
+              log("Invalid array format: {0}", arrayString);
             }
           }
         }
@@ -115,17 +113,16 @@ public class UuidReplacer {
     }
   }
 
-
   private void replaceStringUuidToProperUuid(SQLQueryHolder query, SpaceField field, Map<String, List<Integer>> sqlParameterNameToPosition) {
-    log("sqlParam = " + field.getName());
+    log("sqlParam = {0}", field.getName());
     List<Integer> positions = sqlParameterNameToPosition.get(field.getName());
     if (positions != null) {
       for (Integer position : positions) {
         Object potentialUuid = query.getParams().get(position - 1);
-        log("potential uuid at position " + position + " = " + potentialUuid);
+        log("potential uuid at position {0} = {1}", position, potentialUuid);
         if (potentialUuid != null) {
           UUID uuid = UUID.fromString(potentialUuid.toString());
-          log("converted uuid = " + uuid);
+          log("converted uuid = {0}", uuid);
           query.getParams().set(position - 1, uuid);
         }
       }
@@ -133,15 +130,15 @@ public class UuidReplacer {
   }
 
   private void replaceStringDecimalToProperDouble(SQLQueryHolder query, SpaceField field, Map<String, List<Integer>> sqlParameterNameToPosition) {
-    log("sqlParam = " + field.getName());
+    log("sqlParam = {0}", field.getName());
     List<Integer> positions = sqlParameterNameToPosition.get(field.getName());
     if (positions != null) {
       for (Integer position : positions) {
         Object potentialDecimal = query.getParams().get(position - 1);
-        log("potential decimal at position " + position + " = " + potentialDecimal);
+        log("potential decimal at position {0} = {1}", position, potentialDecimal);
         if (potentialDecimal != null) {
           Double decimalValue = Double.valueOf(potentialDecimal.toString());
-          log("converted decimal = " + decimalValue);
+          log("converted decimal = {0}", decimalValue);
           query.getParams().set(position - 1, decimalValue);
         }
       }
@@ -151,7 +148,6 @@ public class UuidReplacer {
   private boolean queryHasSpaceField(SpaceField field, Set<String> sqlParams) {
     return sqlParams.contains(field.getName());
   }
-
 
   private boolean spaceTypeIsArray(SpaceField field) {
     return field.getType().equals("array");
@@ -165,37 +161,34 @@ public class UuidReplacer {
     return field.getType().equals("decimal");
   }
 
-
   // Новый метод для преобразования строк в булевы значения
-// В методе replaceStringBooleanToProperBoolean добавляем проверки типов
+  // В методе replaceStringBooleanToProperBoolean добавляем проверки типов
   private void replaceStringBooleanToProperBoolean(SQLQueryHolder query, SpaceField field,
       Map<String, List<Integer>> sqlParameterNameToPosition) {
-    log("sqlParam = " + field.getName());
+    log("sqlParam = {0}", field.getName());
     List<Integer> positions = sqlParameterNameToPosition.get(field.getName());
     if (positions != null) {
       for (Integer position : positions) {
         Object potentialBoolean = query.getParams().get(position - 1);
-        log("potential boolean at position " + position + " = " + potentialBoolean);
+        log("potential boolean at position {0} = {1}", position, potentialBoolean);
 
         if (potentialBoolean == null) {
           continue; // Сохраняем null как есть
         }
 
         if (potentialBoolean instanceof Boolean) {
-          log("Parameter is already Boolean: " + potentialBoolean);
+          log("Parameter is already Boolean: {0}", potentialBoolean);
           continue;
         }
 
         if (potentialBoolean instanceof String) {
           Boolean booleanValue = Boolean.parseBoolean(((String) potentialBoolean).toLowerCase());
-          log("converted boolean = " + booleanValue);
+          log("converted boolean = {0}", booleanValue);
           query.getParams().set(position - 1, booleanValue);
         } else {
-          log("Invalid boolean type: " + potentialBoolean.getClass().getName());
-          throw new IllegalArgumentException(
-              "Boolean parameter must be String or Boolean. Actual type: "
-                  + potentialBoolean.getClass().getName()
-          );
+          log("Invalid boolean type: {0}", potentialBoolean.getClass().getName());
+          throw new IllegalArgumentException("Boolean parameter must be String or Boolean. Actual type: "
+              + potentialBoolean.getClass().getName());
         }
       }
     }

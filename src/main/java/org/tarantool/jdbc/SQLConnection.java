@@ -1,21 +1,6 @@
 package org.tarantool.jdbc;
 
-import static org.tarantool.utils.LocalLogger.log;
-
-import java.util.stream.Collectors;
-import org.tarantool.CommunicationException;
-import org.tarantool.SocketChannelProvider;
-import org.tarantool.SqlProtoUtils;
-import org.tarantool.TarantoolClientConfig;
-import org.tarantool.TarantoolClientImpl;
-import org.tarantool.TarantoolClusterClient;
-import org.tarantool.TarantoolClusterClientConfig;
-import org.tarantool.TarantoolOperation;
-import org.tarantool.TarantoolRequest;
-import org.tarantool.protocol.TarantoolPacket;
-import org.tarantool.util.JdbcConstants;
-import org.tarantool.util.NodeSpec;
-import org.tarantool.util.SQLStates;
+import static org.tarantool.logging.LocalLogger.log;
 
 import java.io.IOException;
 import java.sql.Array;
@@ -52,7 +37,19 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
-import org.tarantool.utils.UuidReplacer;
+import java.util.stream.Collectors;
+import org.tarantool.CommunicationException;
+import org.tarantool.SocketChannelProvider;
+import org.tarantool.SqlProtoUtils;
+import org.tarantool.TarantoolClusterClient;
+import org.tarantool.TarantoolClusterClientConfig;
+import org.tarantool.TarantoolOperation;
+import org.tarantool.TarantoolRequest;
+import org.tarantool.handle.SQLQueryHolderHandler;
+import org.tarantool.protocol.TarantoolPacket;
+import org.tarantool.util.JdbcConstants;
+import org.tarantool.util.NodeSpec;
+import org.tarantool.util.SQLStates;
 
 /**
  * Tarantool {@link Connection} implementation.
@@ -104,7 +101,7 @@ public class SQLConnection implements TarantoolConnection {
 
   protected SQLTarantoolClientImpl makeSqlClient(List<String> addresses, TarantoolClusterClientConfig config) {
     log("make sql client");
-    log("addresses: " + addresses);
+    log("addresses: {0}", addresses);
     return new SQLTarantoolClientImpl(addresses, config);
   }
 
@@ -769,13 +766,13 @@ public class SQLConnection implements TarantoolConnection {
     final SQLRawOps sqlRawOps = new SQLRawOps() {
       @Override
       public SQLResultHolder execute(SQLQueryHolder query) {
-        query = new UuidReplacer(schemaMeta).updateUuidToProperType(query);
+        query = new SQLQueryHolderHandler(schemaMeta).handle(query);
         return (SQLResultHolder) syncGet(executeQuery(query));
       }
 
       @Override
       public SQLResultHolder execute(long timeoutMillis, SQLQueryHolder query) {
-        query = new UuidReplacer(schemaMeta).updateUuidToProperType(query);
+        query = new SQLQueryHolderHandler(schemaMeta).handle(query);
         return (SQLResultHolder) syncGet(executeQuery(query, timeoutMillis));
       }
 
@@ -851,9 +848,6 @@ public class SQLConnection implements TarantoolConnection {
       SQLBatchResultHolder executeBatch(List<SQLQueryHolder> queries);
 
       SQLBatchResultHolder executeBatch(long timeoutMillis, List<SQLQueryHolder> queries);
-
     }
-
   }
-
 }

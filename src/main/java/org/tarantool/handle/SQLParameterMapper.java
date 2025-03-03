@@ -1,10 +1,12 @@
-package org.tarantool.utils;
+package org.tarantool.handle;
+
+import static org.tarantool.logging.LocalLogger.errorLog;
+import static org.tarantool.util.StringUtils.stripQuotes;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.Function;
@@ -27,12 +29,14 @@ import net.sf.jsqlparser.statement.update.Update;
  */
 public class SQLParameterMapper {
 
+  //todo проверить используется ли этот класс полноценно
+
   /**
-   * Extracts parameters from an SQL query (INSERT, UPDATE, DELETE, SELECT) and returns a Map where the key
-   * is the parameter (column) name without quotes, and the value is a list of its positions.
+   * Extracts parameters from an SQL query (INSERT, UPDATE, DELETE, SELECT) and returns a Map where the key is the parameter (column) name without
+   * quotes, and the value is a list of its positions.
    *
    * @param sqlQuery SQL query of type INSERT, UPDATE, DELETE, or SELECT
-   * @return Map<String, List<Integer>> with parameter names and their positions
+   * @return Map<String, List < Integer>> with parameter names and their positions
    */
   public static Map<String, List<Integer>> mapParameters(String sqlQuery) {
     Map<String, List<Integer>> paramMap = new LinkedHashMap<>();
@@ -55,7 +59,7 @@ public class SQLParameterMapper {
         throw new IllegalArgumentException("Unsupported SQL command. Only INSERT, UPDATE, DELETE, SELECT are supported.");
       }
     } catch (Exception e) {
-      e.printStackTrace();
+      errorLog(e, "");
     }
     return paramMap;
   }
@@ -223,20 +227,5 @@ public class SQLParameterMapper {
     }
     // Handle other expression types if necessary
     return paramIndex;
-  }
-
-  /**
-   * Removes quotes around a column name if present.
-   *
-   * @param name Column name with possible quotes
-   * @return Column name without quotes
-   */
-  private static String stripQuotes(String name) {
-    if ((name.startsWith("\"") && name.endsWith("\"")) ||
-        (name.startsWith("`") && name.endsWith("`")) ||
-        (name.startsWith("'") && name.endsWith("'"))) {
-      return name.substring(1, name.length() - 1);
-    }
-    return name;
   }
 }

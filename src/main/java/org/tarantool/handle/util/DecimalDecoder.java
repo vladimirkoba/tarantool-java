@@ -1,10 +1,9 @@
-package org.tarantool.utils;
-
+package org.tarantool.handle.util;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-public class TarantoolDecimal {
+public class DecimalDecoder {
 
   /**
    * Декодирует массив байт Tarantool DECIMAL в BigDecimal.
@@ -12,7 +11,7 @@ public class TarantoolDecimal {
    * @param data байтовый массив, полученный из MsgPack EXT type=1
    * @return BigDecimal представление числа
    */
-  public static BigDecimal decodeDecimal(byte[] data) {
+  public static BigDecimal decode(byte[] data) {
     if (data.length < 2) {
       throw new IllegalArgumentException("Invalid decimal data length");
     }
@@ -32,7 +31,10 @@ public class TarantoolDecimal {
       throw new IllegalArgumentException("Unknown sign nibble: " + String.format("0x%02X", signByte));
     }
 
-    // Собираем цифры
+    return new BigDecimal(getBigInteger(data, signByte, negative), scale);
+  }
+
+  private static BigInteger getBigInteger(byte[] data, byte signByte, boolean negative) {
     StringBuilder sb = new StringBuilder();
     for (int i = 1; i < data.length - 1; i++) {
       byte b = data[i];
@@ -52,9 +54,6 @@ public class TarantoolDecimal {
     if (negative) {
       unscaled = unscaled.negate();
     }
-
-    return new BigDecimal(unscaled, scale);
+    return unscaled;
   }
-
 }
-

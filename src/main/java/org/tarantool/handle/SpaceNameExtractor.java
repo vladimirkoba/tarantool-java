@@ -1,19 +1,21 @@
-package org.tarantool.utils;
+package org.tarantool.handle;
+
+import static org.tarantool.util.StringUtils.stripQuotes;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SpaceNameExtractor {
 
+  // Регулярные выражения для различных SQL-запросов
+  private static final String selectPattern = "(?i)select\\s+.*\\s+from\\s+([\"`]?\\w+[\"`]?(?:\\.[" + "\"`]?\\w+[\"`]?)?)";
+  private static final String insertPattern = "(?i)insert\\s+into\\s+([\"`]?\\w+[\"`]?(?:\\.[" + "\"`]?\\w+[\"`]?)?)";
+  private static final String updatePattern = "(?i)update\\s+([\"`]?\\w+[\"`]?(?:\\.[" + "\"`]?\\w+[\"`]?)?)";
+  private static final String deletePattern = "(?i)delete\\s+from\\s+([\"`]?\\w+[\"`]?(?:\\.[" + "\"`]?\\w+[\"`]?)?)";
+
   public static String extractSpaceName(String sqlQuery) {
     // Убираем лишние пробелы
     String normalizedQuery = sqlQuery.trim();
-
-    // Регулярные выражения для различных SQL-запросов
-    String selectPattern = "(?i)select\\s+.*\\s+from\\s+([\"`]?\\w+[\"`]?(?:\\.[" + "\"`]?\\w+[\"`]?)?)";
-    String insertPattern = "(?i)insert\\s+into\\s+([\"`]?\\w+[\"`]?(?:\\.[" + "\"`]?\\w+[\"`]?)?)";
-    String updatePattern = "(?i)update\\s+([\"`]?\\w+[\"`]?(?:\\.[" + "\"`]?\\w+[\"`]?)?)";
-    String deletePattern = "(?i)delete\\s+from\\s+([\"`]?\\w+[\"`]?(?:\\.[" + "\"`]?\\w+[\"`]?)?)";
 
     // Попробуем найти название таблицы в зависимости от типа SQL-запроса
     String tableName = matchTableName(normalizedQuery, selectPattern);
@@ -29,9 +31,8 @@ public class SpaceNameExtractor {
 
     // Удаляем кавычки, если они присутствуют
     if (tableName != null) {
-      tableName = tableName.replaceAll("[\"`]", "");
+      tableName = stripQuotes(tableName);
     }
-
 
     return tableName;
   }

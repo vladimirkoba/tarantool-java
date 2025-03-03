@@ -1,11 +1,12 @@
 package org.tarantool.jdbc.type;
 
+import static org.tarantool.logging.LocalLogger.log;
+
 import java.math.BigDecimal;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.JDBCType;
 import java.sql.NClob;
-import org.tarantool.utils.LocalLogger;
 
 /**
  * Describes supported JDBC types that match Tarantool SQL types.
@@ -69,7 +70,7 @@ public enum JdbcType {
 
   public int getTypeNumber() {
     if (targetJdbcType == JDBCType.DECIMAL) {
-      LocalLogger.log("JDBCType.DECIMAL vendor type number is" + targetJdbcType.getVendorTypeNumber());
+      log("JDBCType.DECIMAL vendor type number is {0}", targetJdbcType.getVendorTypeNumber());
     }
     return targetJdbcType.getVendorTypeNumber();
   }

@@ -1,6 +1,6 @@
 package org.tarantool.utils;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.tarantool.handle.PreparedStatementConverter.convertSqlToPreparedStatementFormat;
 
 import org.junit.jupiter.api.Test;
 import org.tarantool.jdbc.SQLQueryHolder;
@@ -35,7 +35,7 @@ class PreparedStatementConverterTest {
         "           'f685d293-54a4-47d0-95cc-453a4ec521bc'\n" +
         "       )";
 
-    SQLQueryHolder queryHolder = PreparedStatementConverter.convertSqlToPreparedStatementFormat(sql);
+    SQLQueryHolder queryHolder = convertSqlToPreparedStatementFormat(sql);
 
     System.out.println("Parameterized Query:");
     System.out.println(queryHolder.getQuery());
