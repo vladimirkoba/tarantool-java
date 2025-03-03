@@ -2,7 +2,7 @@ package org.tarantool.jdbc;
 
 import static org.tarantool.util.JdbcConstants.DatabaseMetadataTable;
 import static org.tarantool.util.JdbcConstants.DatabaseMetadataTable.INDEX_INFO;
-import static org.tarantool.utils.LocalLogger.log;
+import static org.tarantool.logging.LocalLogger.log;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -23,7 +23,7 @@ import org.tarantool.SqlProtoUtils;
 import org.tarantool.Version;
 import org.tarantool.jdbc.type.TarantoolSqlType;
 import org.tarantool.util.TupleTwo;
-import org.tarantool.utils.LocalLogger;
+import org.tarantool.logging.LocalLogger;
 
 public class SQLDatabaseMetadata implements DatabaseMetaData {
 

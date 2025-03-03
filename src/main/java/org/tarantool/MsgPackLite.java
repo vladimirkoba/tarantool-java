@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import org.tarantool.utils.TarantoolDecimal;
+import org.tarantool.handle.util.DecimalDecoder;
 
 /**
  * Updated MsgPackLite class with enhanced logging, corrected handling of extension types, and full support for Tarantool DECIMAL as BigDecimal.
@@ -99,7 +99,6 @@ public class MsgPackLite {
    * @throws IOException If an I/O error occurs.
    */
   public void pack(Object item, OutputStream os) throws IOException {
-
 
     DataOutputStream out = new DataOutputStream(os);
 
@@ -309,7 +308,6 @@ public class MsgPackLite {
     boolean negative = bd.signum() < 0;
     BigDecimal absBd = bd.abs();
     String digitsStr = absBd.unscaledValue().toString();
-
 
     if (digitsStr.length() % 2 != 0) {
       digitsStr = "0" + digitsStr;
@@ -636,9 +634,8 @@ public class MsgPackLite {
     else if (type == MP_DECIMAL_TYPE) {
       byte[] decimalBytes = new byte[length];
       in.readFully(decimalBytes);
-      return TarantoolDecimal.decodeDecimal(decimalBytes);
-    }
-    else {
+      return DecimalDecoder.decode(decimalBytes);
+    } else {
       byte[] extData = new byte[length];
       in.readFully(extData);
       return extData;

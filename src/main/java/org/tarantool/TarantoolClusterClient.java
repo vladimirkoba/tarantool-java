@@ -1,6 +1,6 @@
 package org.tarantool;
 
-import static org.tarantool.utils.LocalLogger.log;
+import static org.tarantool.logging.LocalLogger.log;
 
 import java.util.Arrays;
 import java.util.List;

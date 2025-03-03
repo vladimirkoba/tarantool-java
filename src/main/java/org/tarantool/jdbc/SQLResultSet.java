@@ -1,5 +1,7 @@
 package org.tarantool.jdbc;
 
+import static org.tarantool.logging.LocalLogger.log;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Reader;
@@ -34,7 +36,6 @@ import org.tarantool.jdbc.cursor.CursorIterator;
 import org.tarantool.jdbc.cursor.InMemoryForwardCursorIteratorImpl;
 import org.tarantool.jdbc.cursor.InMemoryScrollableCursorIteratorImpl;
 import org.tarantool.util.SQLStates;
-import org.tarantool.utils.LocalLogger;
 
 public class SQLResultSet implements ResultSet {
 
@@ -205,13 +206,13 @@ public class SQLResultSet implements ResultSet {
 
   @Override
   public double getDouble(int columnIndex) throws SQLException {
-    LocalLogger.log("double getDouble(int columnIndex) called for column " + columnIndex + " in " + this.getClass().getSimpleName());
+    log("double getDouble(int columnIndex) called for column {0} in {1}", columnIndex, this.getClass().getSimpleName());
     return (getNumber(columnIndex)).doubleValue();
   }
 
   @Override
   public double getDouble(String columnLabel) throws SQLException {
-    LocalLogger.log("double getDouble(String columnLabel) called for column " + columnLabel + " in " + this.getClass().getSimpleName());
+    log("double getDouble(String columnLabel) called for column {0} in {1}", columnLabel, this.getClass().getSimpleName());
     return getDouble(findColumn(columnLabel));
   }
 
@@ -234,11 +235,9 @@ public class SQLResultSet implements ResultSet {
   }
 
 
-
-
   @Override
   public BigDecimal getBigDecimal(int columnIndex, int scale) throws SQLException {
-    LocalLogger.log("bigdecimal getBigDecimal(int columnIndex) called for column " + columnIndex + " in " + this.getClass().getSimpleName());
+    log("bigDecimal getBigDecimal(int columnIndex) called for column {0} in {1}", columnIndex, this.getClass().getSimpleName());
     String raw = getString(columnIndex);
     if (raw == null) {
       return null;
@@ -269,14 +268,14 @@ public class SQLResultSet implements ResultSet {
 
   @Override
   public byte[] getBytes(String columnLabel) throws SQLException {
-    LocalLogger.log("bytes getBytes(String columnLabel) called for column " + columnLabel + " in " + this.getClass().getSimpleName());
+    log("bytes getBytes(String columnLabel) called for column {0} in {1}", columnLabel, this.getClass().getSimpleName());
     return getBytes(findColumn(columnLabel));
   }
 
   @Override
   public Date getDate(int columnIndex) throws SQLException {
     Number time = getNullableNumber(columnIndex);
-    return time == null ? null : new java.sql.Date(time.longValue());
+    return time == null ? null : new Date(time.longValue());
   }
 
   @Override
@@ -297,7 +296,7 @@ public class SQLResultSet implements ResultSet {
   @Override
   public Time getTime(int columnIndex) throws SQLException {
     Number time = getNullableNumber(columnIndex);
-    return time == null ? null : new java.sql.Time(time.longValue());
+    return time == null ? null : new Time(time.longValue());
   }
 
   @Override
@@ -318,7 +317,7 @@ public class SQLResultSet implements ResultSet {
   @Override
   public Timestamp getTimestamp(int columnIndex) throws SQLException {
     Number time = getNullableNumber(columnIndex);
-    return time == null ? null : new java.sql.Timestamp(time.longValue());
+    return time == null ? null : new Timestamp(time.longValue());
   }
 
   @Override
