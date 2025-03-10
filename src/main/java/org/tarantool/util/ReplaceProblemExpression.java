@@ -1,5 +1,7 @@
 package org.tarantool.util;
 
+import static org.tarantool.util.StringUtils.stripQuotes;
+
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -13,6 +15,7 @@ import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.expression.operators.relational.IsBooleanExpression;
 import net.sf.jsqlparser.expression.operators.relational.ItemsList;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.select.Select;
@@ -25,7 +28,8 @@ public class ReplaceProblemExpression {
 
   public static Expression checkWhere(Expression expression) {
     Expression expressionAfterFirstCheck = substitutionIsBooleanExpression(expression);
-    return substitutionNowFunctionFromWhere(expressionAfterFirstCheck);
+    Expression expressionAfterSecondCheck = substitutionNowFunctionFromWhere(expressionAfterFirstCheck);
+    return substitutionLikeExpressionWithEscape(expressionAfterSecondCheck);
   }
 
   private static Expression substitutionIsBooleanExpression(Expression expression) {
@@ -58,7 +62,12 @@ public class ReplaceProblemExpression {
   }
 
   private static Expression substitutionNowFunctionFromWhere(Expression expression) {
-    if (expression instanceof BinaryExpression) {
+    if (expression instanceof Function) {
+      Function function = (Function) expression;
+      if ("now".equalsIgnoreCase(function.getName())) {
+        return new LongValue(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC));
+      }
+    } else if (expression instanceof BinaryExpression) {
       BinaryExpression binaryExpression = (BinaryExpression) expression;
       Expression left = substitutionNowFunctionFromWhere(binaryExpression.getLeftExpression());
       Expression right = substitutionNowFunctionFromWhere(binaryExpression.getRightExpression());
@@ -66,12 +75,29 @@ public class ReplaceProblemExpression {
       binaryExpression.setRightExpression(right);
     }
 
-    if (expression instanceof Function) {
-      Function function = (Function) expression;
-      if ("now".equalsIgnoreCase(function.getName())) {
-        return new LongValue(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC));
+    return expression;
+  }
+
+  private static Expression substitutionLikeExpressionWithEscape(Expression expression) {
+    if (expression instanceof LikeExpression) {
+      LikeExpression likeExpr = (LikeExpression) expression;
+      if (likeExpr.getEscape() != null) {
+        String escape = stripQuotes(likeExpr.getEscape().toString());
+        if ("#".equals(escape)) {
+          EqualsTo equals = new EqualsTo();
+          equals.setLeftExpression(likeExpr.getLeftExpression());
+          equals.setRightExpression(likeExpr.getRightExpression());
+          return equals;
+        }
       }
+    } else if (expression instanceof BinaryExpression) {
+      BinaryExpression binaryExpression = (BinaryExpression) expression;
+      Expression left = substitutionLikeExpressionWithEscape(binaryExpression.getLeftExpression());
+      Expression right = substitutionLikeExpressionWithEscape(binaryExpression.getRightExpression());
+      binaryExpression.setLeftExpression(left);
+      binaryExpression.setRightExpression(right);
     }
+
     return expression;
   }
 

@@ -2,7 +2,7 @@ package org.tarantool.handle.wrapper;
 
 import static org.tarantool.handle.wrapper.ExpressionWrapper.processExpression;
 import static org.tarantool.handle.wrapper.NameWrapper.wrapTableName;
-import static org.tarantool.handle.wrapper.RequestTypeWrapper.processSelect;
+import static org.tarantool.handle.wrapper.RequestTypeWrapper.processSubSelect;
 
 import java.util.List;
 import net.sf.jsqlparser.expression.Expression;
@@ -10,7 +10,6 @@ import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.select.FromItem;
 import net.sf.jsqlparser.statement.select.Join;
 import net.sf.jsqlparser.statement.select.OrderByElement;
-import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import net.sf.jsqlparser.statement.select.SelectItem;
 import net.sf.jsqlparser.statement.select.SelectItemVisitorAdapter;
@@ -48,9 +47,7 @@ public class ItemWrapper {
       } else if (fromItem instanceof SubSelect) {
         SubSelect subSelect = (SubSelect) fromItem;
         if (subSelect.getSelectBody() != null) {
-          processSelect(new Select() {{
-            setSelectBody(subSelect.getSelectBody());
-          }});
+          processSubSelect(subSelect);
         }
       }
       // Handle other FromItem types if necessary

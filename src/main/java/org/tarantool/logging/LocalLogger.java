@@ -9,11 +9,11 @@ import java.time.format.DateTimeFormatter;
 
 public class LocalLogger {
 
-  private static final String LOG_FILE_PATH = "C:/tarantool_logs/driver_log.txt";
+  private static final String LOG_FILE_PATH = "C:/tarantool/driver_log.txt";
   private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
   /**
-   * Логгирует сообщение в файл C:/tarantool_logs/driver_log.txt.
+   * Логгирует сообщение в файл C:/tarantool/driver_log.txt.
    *
    * @param message Сообщение для логгирования
    */
@@ -30,10 +30,10 @@ public class LocalLogger {
   }
 
   /**
-   * Логгирует сообщение с параметрами в файл C:/tarantool_logs/driver_log.txt.
+   * Логгирует сообщение с параметрами в файл C:/tarantool/driver_log.txt.
    *
    * @param message Сообщение для логгирования
-   * @param args Список параметров для форматирования сообщения для логгирования
+   * @param args    Список параметров для форматирования сообщения для логгирования
    */
   public static void log(String message, Object... args) {
     try (FileWriter fileWriter = new FileWriter(LOG_FILE_PATH, true); // Открываем файл в режиме добавления
@@ -48,10 +48,10 @@ public class LocalLogger {
   }
 
   /**
-   * Логгирует сообщение об ошибке в файл C:/tarantool_logs/driver_log.txt.
+   * Логгирует сообщение об ошибке в файл C:/tarantool/driver_log.txt.
    *
    * @param throwable Объект исключения для логгирования
-   * @param message Сообщение для логгирования
+   * @param message   Сообщение для логгирования
    */
   public static void errorLog(Throwable throwable, String message) {
     try (FileWriter fileWriter = new FileWriter(LOG_FILE_PATH, true); // Открываем файл в режиме добавления
