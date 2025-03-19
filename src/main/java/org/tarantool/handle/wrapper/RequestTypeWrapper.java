@@ -2,6 +2,7 @@ package org.tarantool.handle.wrapper;
 
 import static org.tarantool.handle.wrapper.ExpressionWrapper.processExpression;
 import static org.tarantool.handle.wrapper.ItemWrapper.wrapFromItem;
+import static org.tarantool.handle.wrapper.ItemWrapper.wrapGroupByElements;
 import static org.tarantool.handle.wrapper.ItemWrapper.wrapJoinItems;
 import static org.tarantool.handle.wrapper.ItemWrapper.wrapOrderByElements;
 import static org.tarantool.handle.wrapper.ItemWrapper.wrapSelectItems;
@@ -58,6 +59,9 @@ public class RequestTypeWrapper {
 
         // Process ORDER BY elements
         wrapOrderByElements(plainSelect.getOrderByElements());
+
+        // Process GROUP BY elements
+        wrapGroupByElements(plainSelect.getGroupBy());
       }
     });
   }

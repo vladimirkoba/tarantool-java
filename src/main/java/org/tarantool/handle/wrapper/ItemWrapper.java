@@ -1,13 +1,17 @@
 package org.tarantool.handle.wrapper;
 
 import static org.tarantool.handle.wrapper.ExpressionWrapper.processExpression;
+import static org.tarantool.handle.wrapper.NameWrapper.wrapColumnName;
 import static org.tarantool.handle.wrapper.NameWrapper.wrapTableName;
 import static org.tarantool.handle.wrapper.RequestTypeWrapper.processSubSelect;
 
 import java.util.List;
 import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.select.FromItem;
+import net.sf.jsqlparser.statement.select.GroupByElement;
 import net.sf.jsqlparser.statement.select.Join;
 import net.sf.jsqlparser.statement.select.OrderByElement;
 import net.sf.jsqlparser.statement.select.SelectExpressionItem;
@@ -90,6 +94,23 @@ public class ItemWrapper {
     if (orderByElements != null) {
       for (OrderByElement orderByElement : orderByElements) {
         processExpression(orderByElement.getExpression());
+      }
+    }
+  }
+
+  /**
+   * Wraps GROUP BY item.
+   *
+   * @param groupByElement The GROUP BY item.
+   */
+  public static void wrapGroupByElements(GroupByElement groupByElement) {
+    if (groupByElement != null) {
+      ExpressionList groupByExpressionList = groupByElement.getGroupByExpressionList();
+      List<Expression> expressions = groupByExpressionList.getExpressions();
+      for (Expression expression : expressions) {
+        if (expression instanceof Column) {
+          wrapColumnName((Column) expression);
+        }
       }
     }
   }
